@@ -19,12 +19,15 @@ class IJarvisButton:
         button_action: Action identifier sent back on tap (e.g. "send_click").
         button_type: Controls color/style in the mobile UI.
         button_icon: Optional MaterialCommunityIcons name.
+        completion_message: Message shown after successful execution
+            (e.g. "Email sent!", "Cancelled"). If None, falls back to generic text.
     """
 
     button_text: str
     button_action: str
     button_type: Literal["primary", "secondary", "destructive"]
     button_icon: str | None = None
+    completion_message: str | None = None
 
     def to_dict(self) -> dict[str, str]:
         d: dict[str, str] = {
@@ -34,4 +37,6 @@ class IJarvisButton:
         }
         if self.button_icon:
             d["button_icon"] = self.button_icon
+        if self.completion_message:
+            d["completion_message"] = self.completion_message
         return d
