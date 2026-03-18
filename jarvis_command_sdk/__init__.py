@@ -18,6 +18,9 @@ from .package import JarvisPackage
 from .response import CommandResponse
 from .request import RequestInformation
 from .validation import ValidationResult
+from .agent import IJarvisAgent, AgentSchedule, Alert
+from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
+from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
 
 __all__ = [
     # Command interface
@@ -43,6 +46,17 @@ __all__ = [
     "RequestInformation",
     # Validation
     "ValidationResult",
+    # Agent interface
+    "IJarvisAgent",
+    "AgentSchedule",
+    "Alert",
+    # Device protocol interface
+    "IJarvisDeviceProtocol",
+    "DiscoveredDevice",
+    "DeviceControlResult",
+    # Device manager interface
+    "IJarvisDeviceManager",
+    "DeviceManagerDevice",
 ]
 
 __version__ = "0.1.0"
