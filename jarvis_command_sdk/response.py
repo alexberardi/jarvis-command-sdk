@@ -10,8 +10,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class CommandResponse:
-    """
-    Normalized response structure for all Jarvis commands
+    """Normalized response structure for all Jarvis commands.
 
     This object provides a consistent interface for command responses that supports
     conversational flows and context preservation for follow-up questions.
@@ -19,6 +18,19 @@ class CommandResponse:
     Note: The server generates the spoken response based on context_data.
     Commands should return raw data only.
     """
+
+    __forge_hints__ = {
+        "role": "Return type from run() — carries result data back to the voice pipeline",
+        "tips": [
+            "context_data['message'] is what gets spoken aloud by TTS",
+            "Use CommandResponse.success_response() for happy-path results",
+            "Use CommandResponse.error_response() for errors — never raise exceptions",
+            "Use CommandResponse.final_response() when no follow-up is expected",
+            "Set wait_for_input=True if the command expects a follow-up question",
+            "Include structured data in context_data for the LLM to format the spoken response",
+            "Use actions=[IJarvisButton(...)] for interactive buttons (Send/Cancel) in mobile UI",
+        ],
+    }
 
     # The data found/processed by the command (for server to use in generating response)
     context_data: Optional[Dict[str, Any]] = None

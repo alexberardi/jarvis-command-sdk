@@ -47,6 +47,28 @@ class IJarvisSecret(ABC):
 
 
 class JarvisSecret(IJarvisSecret):
+    """Concrete secret implementation for declaring API keys, URLs, and config values.
+
+    Secrets are stored encrypted on the node. The mobile app settings UI
+    lets users enter values. Non-sensitive secrets (is_sensitive=False) are
+    visible in settings snapshots.
+    """
+
+    __forge_hints__ = {
+        "role": "Declares a secret (API key, URL, config) stored encrypted on the node",
+        "constructor": "JarvisSecret(key, description, scope, value_type, required=True, is_sensitive=True, friendly_name=None)",
+        "allowed_scopes": ["integration", "node"],
+        "allowed_value_types": ["string", "int", "bool"],
+        "example": 'JarvisSecret(key="WEATHER_API_KEY", description="OpenWeather API key", scope="integration", value_type="string")',
+        "tips": [
+            "scope='integration' means shared across all nodes in a household",
+            "scope='node' means per-node (e.g., hardware-specific config)",
+            "Set is_sensitive=False for non-secret config like URLs, units, locations",
+            "friendly_name is shown in the mobile settings UI instead of the key",
+            "Commands sharing an AuthenticationConfig provider share secrets automatically",
+        ],
+    }
+
     def __init__(
         self,
         key: str,

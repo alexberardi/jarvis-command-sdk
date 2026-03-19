@@ -1,6 +1,8 @@
 # jarvis-command-sdk
 
-Core interfaces for building Jarvis voice assistant commands.
+Core interfaces for building Jarvis voice assistant packages — commands, agents, device protocols, and device managers.
+
+> **Tip:** Use the [Forge](https://pantry.jarvisautomation.io/forge) to generate packages from natural language — it uses this SDK's auto-generated spec as its system prompt.
 
 ## Installation
 
@@ -74,3 +76,7 @@ class GetStockPriceCommand(IJarvisCommand):
 | `response` | `CommandResponse` |
 | `request` | `RequestInformation` |
 | `validation` | `ValidationResult` |
+| `agent` | `IJarvisAgent`, `AgentSchedule`, `Alert` |
+| `device_protocol` | `IJarvisDeviceProtocol`, `DiscoveredDevice`, `DeviceControlResult` |
+| `device_manager` | `IJarvisDeviceManager`, `DeviceManagerDevice` |
+| `forge` | `generate_spec()`, `generate_spec_markdown()` |

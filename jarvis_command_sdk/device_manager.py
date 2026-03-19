@@ -34,7 +34,29 @@ class DeviceManagerDevice:
 
 
 class IJarvisDeviceManager(ABC):
-    """Interface for device listing backends."""
+    """Interface for device listing backends.
+
+    A DeviceManager collects the full list of controllable devices from a
+    backend (Home Assistant, Jarvis Direct, etc.) and returns them in a
+    normalized format. The mobile app displays these in the Devices tab.
+    """
+
+    __forge_hints__ = {
+        "component_type": "device_manager",
+        "entry_file": "manager.py",
+        "convention_dir": "device_managers/{name}/",
+        "base_class": "IJarvisDeviceManager",
+        "required_methods": [
+            "name", "friendly_name", "description", "collect_devices",
+        ],
+        "tips": [
+            "name should be short and lowercase (e.g., 'home_assistant', 'jarvis_direct')",
+            "friendly_name is shown in the mobile settings UI",
+            "can_edit_devices controls whether the mobile app shows edit UI for the device list",
+            "collect_devices() should return all devices from this backend in normalized format",
+        ],
+        "example_import": "from jarvis_command_sdk import IJarvisDeviceManager, DeviceManagerDevice, JarvisSecret",
+    }
 
     @property
     @abstractmethod

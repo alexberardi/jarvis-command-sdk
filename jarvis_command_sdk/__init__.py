@@ -21,6 +21,7 @@ from .validation import ValidationResult
 from .agent import IJarvisAgent, AgentSchedule, Alert
 from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
+from .forge import generate_spec, generate_spec_markdown
 
 __all__ = [
     # Command interface
@@ -57,6 +58,9 @@ __all__ = [
     # Device manager interface
     "IJarvisDeviceManager",
     "DeviceManagerDevice",
+    # Forge spec generation
+    "generate_spec",
+    "generate_spec_markdown",
 ]
 
 __version__ = "0.1.0"

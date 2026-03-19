@@ -13,7 +13,18 @@ from .secret import IJarvisSecret
 
 @dataclass
 class AgentSchedule:
-    """Schedule configuration for an agent."""
+    """Schedule configuration for an agent.
+
+    Controls how often the agent's run() method is called.
+    """
+
+    __forge_hints__ = {
+        "role": "Controls agent execution schedule",
+        "tips": [
+            "interval_seconds: how often run() is called (e.g., 300 for every 5 minutes)",
+            "run_on_startup=True means run immediately when the node starts, then on schedule",
+        ],
+    }
 
     interval_seconds: int
     run_on_startup: bool = True
@@ -30,7 +41,30 @@ class Alert:
 
 
 class IJarvisAgent(ABC):
-    """Abstract base class for background agents."""
+    """Abstract base class for background agents.
+
+    Agents run on a schedule in the background, collecting data and caching
+    results. Their cached data is injected into voice request context so
+    commands can reference it. Agents can also produce time-sensitive alerts.
+    """
+
+    __forge_hints__ = {
+        "component_type": "agent",
+        "entry_file": "agent.py",
+        "convention_dir": "agents/{name}/",
+        "base_class": "IJarvisAgent",
+        "required_methods": [
+            "name", "description", "schedule", "required_secrets", "run", "get_context_data",
+        ],
+        "tips": [
+            "run() is called on a schedule — use it to fetch/cache external data",
+            "get_context_data() returns a dict injected into voice request context for all commands",
+            "Use AgentSchedule to set interval_seconds and whether to run_on_startup",
+            "get_alerts() can return time-sensitive Alert objects for push notifications",
+            "Agents share secrets with commands via the same JarvisSecret system",
+        ],
+        "example_import": "from jarvis_command_sdk import IJarvisAgent, AgentSchedule, Alert, JarvisSecret",
+    }
 
     @property
     @abstractmethod

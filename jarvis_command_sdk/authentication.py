@@ -20,6 +20,17 @@ class AuthenticationConfig:
       full URLs from discovered IP + paths.
     """
 
+    __forge_hints__ = {
+        "role": "Declares OAuth/auth requirements — the mobile app acts as a generic OAuth executor",
+        "tips": [
+            "Commands sharing a provider (e.g., 'home_assistant') share auth state automatically",
+            "For external OAuth (Spotify, Google): set authorize_url + exchange_url as full URLs",
+            "For local discovery (HA): set authorize_path + exchange_path + discovery_port",
+            "keys lists which values to extract from the token response (e.g., ['access_token'])",
+            "Most commands don't need auth — only use when calling external APIs that require OAuth",
+        ],
+    }
+
     type: str                              # "oauth" (extensible to "api_key", "basic" later)
     provider: str                          # "home_assistant", "spotify" -- groups commands sharing auth
     friendly_name: str                     # Display name for UI ("Home Assistant", "Spotify")

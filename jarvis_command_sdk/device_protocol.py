@@ -42,7 +42,31 @@ class DeviceControlResult:
 
 
 class IJarvisDeviceProtocol(ABC):
-    """Interface for manufacturer-specific device protocols."""
+    """Interface for manufacturer-specific device protocols.
+
+    Each implementation handles discovery and control for one manufacturer
+    or protocol (e.g., LIFX LAN, TP-Link Kasa, Govee cloud). Protocols
+    are used by the control_device command to interact with smart home devices.
+    """
+
+    __forge_hints__ = {
+        "component_type": "device_protocol",
+        "entry_file": "protocol.py",
+        "convention_dir": "device_families/{name}/",
+        "base_class": "IJarvisDeviceProtocol",
+        "required_methods": [
+            "protocol_name", "supported_domains", "discover", "control", "get_state",
+        ],
+        "tips": [
+            "protocol_name should be short and lowercase (e.g., 'lifx', 'kasa', 'govee')",
+            "supported_domains use HA-style names: 'light', 'switch', 'climate', 'cover', etc.",
+            "discover() scans the network (LAN) or queries a cloud API to find devices",
+            "control() sends actions like 'turn_on', 'turn_off', 'set_brightness' to a device",
+            "get_state() returns the current state of a device (on/off, brightness, temperature, etc.)",
+            "connection_type defaults to 'lan' — override to 'cloud' or 'hybrid' as needed",
+        ],
+        "example_import": "from jarvis_command_sdk import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult, JarvisSecret",
+    }
 
     @property
     @abstractmethod

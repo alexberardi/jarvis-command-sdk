@@ -77,6 +77,23 @@ except ImportError:
         def debug(self, msg, **kw): self._log.debug(msg)
 ```
 
+## Forge (Auto-Documentation)
+
+The SDK auto-documents itself for the Forge (AI-powered package builder) via:
+
+- **`__forge_hints__`** — Class-level dicts on all interfaces and supporting classes with component type, constructor signatures, tips, and examples
+- **`forge.py`** — Runtime introspection module that walks all SDK classes using `inspect` + `get_type_hints` + docstrings + `__forge_hints__` to produce a structured spec
+- **`generate_spec()`** → JSON dict (~55KB) with interfaces, supporting classes, manifest schema, file layout, validation rules
+- **`generate_spec_markdown()`** → Human-readable Markdown (~550 lines) used as the Forge LLM system prompt
+
+The Pantry serves this via `GET /v1/forge/spec` and uses it to build the Forge system prompt dynamically. When you add a method to an interface or change a type, the Forge spec updates automatically.
+
+```python
+from jarvis_command_sdk.forge import generate_spec, generate_spec_markdown
+spec = generate_spec()           # JSON dict
+markdown = generate_spec_markdown()  # For LLM prompts
+```
+
 ## Dependencies
 
 None (pure Python, no external deps).
@@ -84,5 +101,6 @@ None (pure Python, no external deps).
 ## Used By
 
 - `jarvis-node-setup` — Node runtime (imports from `core.*` directly, SDK re-exports same classes)
-- `jarvis-pantry` — Container tests install the SDK for validation
+- `jarvis-pantry` — Container tests install the SDK for validation; Forge uses `forge.py` for spec generation
+- `jarvis-pantry-web` — Forge UI consumes the spec via Pantry API
 - Community packages — Import interfaces for commands, agents, protocols, managers

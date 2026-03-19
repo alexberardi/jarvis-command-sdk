@@ -129,6 +129,30 @@ class IJarvisParameter(ABC):
 
 
 class JarvisParameter(IJarvisParameter):
+    """Concrete parameter implementation for command authors.
+
+    Use this to declare what parameters the LLM should extract from voice input.
+    """
+
+    __forge_hints__ = {
+        "role": "Declares a parameter the LLM extracts from voice input",
+        "constructor": "JarvisParameter(name, param_type, required=False, description=None, default=None, enum_values=None, refinable=False)",
+        "constructor_warning": "IMPORTANT: The keyword arguments are 'param_type' (NOT 'parameter_type') and 'default' (NOT 'default_value'). Using wrong names will cause TypeError at runtime.",
+        "allowed_types": [
+            "string", "int", "float", "bool", "list", "dict",
+            "datetime", "date", "time", "timedelta",
+            "array<string>", "array<int>", "array<float>", "array<bool>",
+            "array<datetime>", "array<date>",
+        ],
+        "example": 'JarvisParameter(name="city", param_type="string", required=True, description="City name for weather lookup")',
+        "tips": [
+            "Use 'string' for most text parameters",
+            "Use enum_values to constrain to a fixed set of choices",
+            "Set required=True only if the command cannot work without this parameter",
+            "The LLM uses the description to understand what to extract from voice input",
+            "refinable=True means the LLM can ask follow-up questions to refine this value",
+        ],
+    }
 
     def __init__(self, name: str, param_type: str, required: bool = False, description: Optional[str] = None, default: Optional[str] = None, enum_values: Optional[List[str]] = None, refinable: bool = False):
         # Validate that param_type is allowed

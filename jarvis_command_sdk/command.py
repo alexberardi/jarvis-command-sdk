@@ -35,7 +35,20 @@ class PreRouteResult:
 
 @dataclass
 class CommandExample:
-    """Represents a voice command example with expected parameters"""
+    """Represents a voice command example with expected parameters.
+
+    Used to teach the LLM how to parse voice input into tool calls.
+    """
+
+    __forge_hints__ = {
+        "role": "Maps a voice utterance to expected parameter extraction",
+        "tips": [
+            "voice_command: natural language (e.g., 'what's the weather in Boston')",
+            "expected_parameters: dict of param_name → extracted value (e.g., {'city': 'Boston'})",
+            "is_primary=True for the most representative example (shown first in prompts)",
+        ],
+    }
+
     voice_command: str
     expected_parameters: Dict[str, Any]
     is_primary: bool = False
@@ -55,6 +68,28 @@ class IJarvisCommand(ABC):
     The SDK provides the pure interface — runtime behavior (secret validation,
     auth management, schema generation) is handled by the node runtime.
     """
+
+    __forge_hints__ = {
+        "component_type": "command",
+        "entry_file": "command.py",
+        "convention_dir": "commands/{name}/",
+        "base_class": "IJarvisCommand",
+        "required_methods": [
+            "command_name", "description", "parameters", "required_secrets",
+            "keywords", "run", "generate_prompt_examples", "generate_adapter_examples",
+        ],
+        "tips": [
+            "command_name must be snake_case and unique across all installed commands",
+            "run() must return a CommandResponse — never raise exceptions to the caller",
+            "context_data['message'] is what gets spoken aloud by the TTS engine",
+            "generate_prompt_examples() should return 3-5 concise examples for LLM tool registration",
+            "generate_adapter_examples() should return 10-20 varied examples for adapter fine-tuning",
+            "Use JarvisParameter for each parameter — the LLM extracts these from voice input",
+            "Use JarvisSecret for API keys or config — secrets are stored encrypted on the node",
+            "Keywords help fuzzy-match voice commands to this command during routing",
+        ],
+        "example_import": "from jarvis_command_sdk import IJarvisCommand, CommandResponse, JarvisParameter, JarvisSecret, CommandExample, RequestInformation",
+    }
 
     @property
     @abstractmethod
