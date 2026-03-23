@@ -22,18 +22,20 @@ from .command import CommandExample, IJarvisCommand
 from .device_manager import DeviceManagerDevice, IJarvisDeviceManager
 from .device_protocol import DeviceControlResult, DiscoveredDevice, IJarvisDeviceProtocol
 from .package import JarvisPackage
+from .prompt_provider import IJarvisPromptProvider
 from .parameter import JarvisParameter
 from .request import RequestInformation
 from .response import CommandResponse
 from .secret import JarvisSecret
 from .validation import ValidationResult
 
-# The four main interface classes authors implement
+# The five main interface classes authors implement
 INTERFACE_CLASSES: list[type] = [
     IJarvisCommand,
     IJarvisAgent,
     IJarvisDeviceProtocol,
     IJarvisDeviceManager,
+    IJarvisPromptProvider,
 ]
 
 # Supporting dataclasses/classes authors use in their implementations
@@ -150,7 +152,7 @@ MANIFEST_SCHEMA: dict[str, Any] = {
             "item_fields": {
                 "type": {
                     "type": "string", "required": True,
-                    "valid_values": ["command", "agent", "device_protocol", "device_manager"],
+                    "valid_values": ["command", "agent", "device_protocol", "device_manager", "prompt_provider"],
                 },
                 "name": {"type": "string", "required": True},
                 "path": {"type": "string", "required": True, "description": "Relative path to entry file"},
@@ -181,6 +183,7 @@ FILE_LAYOUT: dict[str, Any] = {
             "agents/{name}/agent.py                  # agent implementations",
             "device_families/{name}/protocol.py      # device protocol implementations",
             "device_managers/{name}/manager.py        # device manager implementations",
+            "prompt_providers/{name}/provider.py      # prompt provider implementations",
             "{package_name}_shared/                  # shared code across components",
             "README.md                               # optional",
         ],
@@ -197,6 +200,7 @@ FILE_LAYOUT: dict[str, Any] = {
             "agents/{name}/agent.py": "agent",
             "device_families/{name}/protocol.py": "device_protocol",
             "device_managers/{name}/manager.py": "device_manager",
+            "prompt_providers/{name}/provider.py": "prompt_provider",
             "command.py (at root)": "single command",
         },
     },
@@ -225,6 +229,11 @@ VALIDATION_RULES: dict[str, Any] = {
         "shared_dir_conflicts": (
             "Top-level directories matching node built-in package names "
             "(services, utils, core, agents, commands, etc.) are flagged as warnings"
+        ),
+        "prompt_provider_note": (
+            "prompt_provider components install to the command center "
+            "(app/core/prompt_providers/), not to nodes. They are discovered "
+            "at runtime via pkgutil.walk_packages — no CC restart needed."
         ),
     },
     "container_tests": {

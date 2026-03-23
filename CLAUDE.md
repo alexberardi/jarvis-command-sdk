@@ -19,6 +19,9 @@ pip install -e ../jarvis-command-sdk
 | `IJarvisAgent` | `agent.py` | Background agent (scheduled data collection) |
 | `IJarvisDeviceProtocol` | `device_protocol.py` | LAN/cloud device adapter (LIFX, Kasa, etc.) |
 | `IJarvisDeviceManager` | `device_manager.py` | Device listing backend (HA, Jarvis Direct) |
+| `JarvisStorage` | `storage.py` | Command data persistence + secrets facade |
+| `DateKeys` | `date_keys.py` | Standardized relative date constants |
+| `GeocodingHelper` | `geocoding.py` | Fuzzy location → coordinates resolver |
 
 ## Usage
 
@@ -54,6 +57,15 @@ IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
 
 # Device managers
 IJarvisDeviceManager, DeviceManagerDevice
+
+# Storage
+JarvisStorage, StorageBackend, set_backend, get_backend
+
+# Date keys
+DateKeys, ALL_DATE_KEYS
+
+# Geocoding
+GeocodingHelper, GeocodingResult
 ```
 
 ## For Community Package Authors

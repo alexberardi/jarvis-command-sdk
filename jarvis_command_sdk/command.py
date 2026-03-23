@@ -87,6 +87,7 @@ class IJarvisCommand(ABC):
             "Use JarvisParameter for each parameter — the LLM extracts these from voice input",
             "Use JarvisSecret for API keys or config — secrets are stored encrypted on the node",
             "Keywords help fuzzy-match voice commands to this command during routing",
+            "Override setup_guide to return Markdown with step-by-step instructions for getting API keys or enabling integrations — shown in the mobile app",
         ],
         "example_import": "from jarvis_command_sdk import IJarvisCommand, CommandResponse, JarvisParameter, JarvisSecret, CommandExample, RequestInformation",
     }
@@ -189,6 +190,22 @@ class IJarvisCommand(ABC):
         """
         if self.authentication:
             return self.authentication.friendly_name
+        return None
+
+    @property
+    def setup_guide(self) -> str | None:
+        """Markdown guide for setting up this command's secrets/integrations.
+
+        Rendered in the mobile app when the user taps "Setup Help" on the
+        command's settings section. Use this to walk non-technical users
+        through getting API keys, enabling integrations, etc.
+
+        Supports full GitHub-flavored Markdown (headings, links, numbered
+        steps, images, code blocks). Keep it concise and action-oriented.
+
+        Returns:
+            Markdown string, or None for no guide.
+        """
         return None
 
     @property
@@ -311,6 +328,141 @@ class IJarvisCommand(ABC):
             python scripts/init_data.py --command <command_name>
         """
         return {"status": "no_init_required"}
+
+    # ── Schema generation ───────────────────────────────────────────────
+    # These build tool/command schemas for LLM registration. Defined here
+    # (not on the node runtime) so both built-in and Pantry commands work.
+
+    _TYPE_MAPPING: Dict[str, str] = {
+        "str": "string", "string": "string",
+        "int": "integer", "integer": "integer",
+        "float": "number", "number": "number",
+        "bool": "boolean", "boolean": "boolean",
+        "list": "array", "array": "array",
+        "dict": "object",
+        "datetime": "string", "date": "string", "time": "string",
+        "array[datetime]": "array", "array[date]": "array",
+        "array<datetime>": "array", "array<date>": "array",
+        "datetime[]": "array", "date[]": "array",
+        "enum": "string",
+    }
+
+    def _validate_examples(self, examples: List["CommandExample"]) -> None:
+        primary_count = sum(1 for ex in examples if ex.is_primary)
+        if primary_count > 1:
+            raise ValueError(
+                f"Command '{self.command_name}' has {primary_count} primary examples. "
+                "Only 0 or 1 allowed."
+            )
+
+    def to_openai_tool_schema(self, date_context: Any = None) -> Dict[str, Any]:
+        """Convert this command to OpenAI function/tool calling schema format."""
+        examples = self.generate_prompt_examples()
+        self._validate_examples(examples)
+
+        properties: Dict[str, Any] = {}
+        required_params: List[str] = []
+
+        for param in self.parameters:
+            json_type = self._TYPE_MAPPING.get(param.param_type, "string")
+            param_schema: Dict[str, Any] = {"type": json_type}
+
+            if param.description:
+                param_schema["description"] = param.description
+            if param.enum_values:
+                param_schema["enum"] = param.enum_values
+
+            # Handle array types
+            if param.param_type.startswith("array") or param.param_type.endswith("[]"):
+                param_schema["type"] = "array"
+                if "datetime" in param.param_type:
+                    param_schema["items"] = {"type": "string", "format": "date-time"}
+                elif "date" in param.param_type:
+                    param_schema["items"] = {"type": "string", "format": "date"}
+
+            if getattr(param, "refinable", False):
+                param_schema["_refinable"] = True
+
+            properties[param.name] = param_schema
+            if param.required:
+                required_params.append(param.name)
+
+        tool_schema: Dict[str, Any] = {
+            "type": "function",
+            "function": {
+                "name": self.command_name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required_params,
+                },
+            },
+            "allow_direct_answer": self.allow_direct_answer,
+            "keywords": self.keywords,
+            "examples": [
+                {
+                    "voice_command": ex.voice_command,
+                    "expected_parameters": ex.expected_parameters,
+                    "is_primary": ex.is_primary,
+                }
+                for ex in examples
+            ],
+        }
+
+        if self.antipatterns:
+            tool_schema["antipatterns"] = [
+                {"command_name": ap.command_name, "description": ap.description}
+                for ap in self.antipatterns
+            ]
+
+        return tool_schema
+
+    def get_command_schema(self, date_context: Any = None, use_adapter_examples: bool = False) -> Dict[str, Any]:
+        """Generate the command schema for the LLM."""
+        examples = self.generate_adapter_examples() if use_adapter_examples else self.generate_prompt_examples()
+        self._validate_examples(examples)
+
+        schema: Dict[str, Any] = {
+            "command_name": self.command_name,
+            "description": self.description,
+            "allow_direct_answer": self.allow_direct_answer,
+            "examples": [
+                {
+                    "voice_command": ex.voice_command,
+                    "expected_parameters": ex.expected_parameters,
+                    "is_primary": ex.is_primary,
+                }
+                for ex in examples
+            ],
+            "keywords": self.keywords,
+            "parameters": [param.to_dict() for param in self.parameters],
+        }
+
+        if self.rules:
+            schema["rules"] = self.rules
+        if self.antipatterns:
+            schema["antipatterns"] = [
+                {"command_name": ap.command_name, "description": ap.description}
+                for ap in self.antipatterns
+            ]
+        if self.critical_rules:
+            schema["critical_rules"] = self.critical_rules
+
+        return schema
+
+    def get_primary_example(self, date_context: Any = None) -> "CommandExample":
+        """Get the primary example for command inference (or first if none marked primary)."""
+        examples = self.generate_prompt_examples()
+        self._validate_examples(examples)
+        primary = [ex for ex in examples if ex.is_primary]
+        if primary:
+            return primary[0]
+        if examples:
+            return examples[0]
+        raise ValueError(f"Command '{self.command_name}' has no examples")
+
+    # ── Abstract method ───────────────────────────────────────────────
 
     @abstractmethod
     def run(self, request_info: RequestInformation, **kwargs) -> CommandResponse:
