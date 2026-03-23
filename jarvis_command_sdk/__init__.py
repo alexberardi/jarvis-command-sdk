@@ -25,6 +25,7 @@ from .prompt_provider import IJarvisPromptProvider
 from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
 from .date_keys import DateKeys, ALL_DATE_KEYS
 from .geocoding import GeocodingHelper, GeocodingResult
+from .settings import UserSettings
 from .forge import generate_spec, generate_spec_markdown
 
 __all__ = [
@@ -75,6 +76,8 @@ __all__ = [
     # Geocoding
     "GeocodingHelper",
     "GeocodingResult",
+    # Settings
+    "UserSettings",
     # Forge spec generation
     "generate_spec",
     "generate_spec_markdown",
