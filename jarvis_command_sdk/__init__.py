@@ -21,6 +21,10 @@ from .validation import ValidationResult
 from .agent import IJarvisAgent, AgentSchedule, Alert
 from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
+from .prompt_provider import IJarvisPromptProvider
+from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
+from .date_keys import DateKeys, ALL_DATE_KEYS
+from .geocoding import GeocodingHelper, GeocodingResult
 from .forge import generate_spec, generate_spec_markdown
 
 __all__ = [
@@ -58,6 +62,19 @@ __all__ = [
     # Device manager interface
     "IJarvisDeviceManager",
     "DeviceManagerDevice",
+    # Prompt provider interface
+    "IJarvisPromptProvider",
+    # Storage
+    "JarvisStorage",
+    "StorageBackend",
+    "set_backend",
+    "get_backend",
+    # Date keys
+    "DateKeys",
+    "ALL_DATE_KEYS",
+    # Geocoding
+    "GeocodingHelper",
+    "GeocodingResult",
     # Forge spec generation
     "generate_spec",
     "generate_spec_markdown",
