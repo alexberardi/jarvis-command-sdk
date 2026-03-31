@@ -121,6 +121,8 @@ MANIFEST_SCHEMA: dict[str, Any] = {
                 "required": {"type": "bool", "default": True},
                 "is_sensitive": {"type": "bool", "default": True},
                 "friendly_name": {"type": "string", "description": "Display name in mobile settings UI"},
+                "enum_values": {"type": "list[string]", "description": "Allowed values (mobile renders a dropdown). Only for value_type='string'."},
+                "presets": {"type": "dict[string, dict[string, string]]", "description": "Maps enum values to {secret_key: default_value} for auto-fill."},
             },
         },
         "packages": {

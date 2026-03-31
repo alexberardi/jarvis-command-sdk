@@ -45,6 +45,24 @@ class IJarvisSecret(ABC):
         """
         return True
 
+    @property
+    def enum_values(self) -> list[str] | None:
+        """Optional list of allowed values for this secret.
+
+        When set, the mobile app renders a dropdown picker instead of free-text
+        input. Only valid for value_type='string'.
+        """
+        return None
+
+    @property
+    def presets(self) -> dict[str, dict[str, str]] | None:
+        """Maps enum values to dicts of {secret_key: default_value}.
+
+        When the user selects an enum value in the mobile app, it offers to
+        auto-fill these dependent secrets. Keys must be members of enum_values.
+        """
+        return None
+
 
 class JarvisSecret(IJarvisSecret):
     """Concrete secret implementation for declaring API keys, URLs, and config values.
@@ -56,7 +74,7 @@ class JarvisSecret(IJarvisSecret):
 
     __forge_hints__ = {
         "role": "Declares a secret (API key, URL, config) stored encrypted on the node",
-        "constructor": "JarvisSecret(key, description, scope, value_type, required=True, is_sensitive=True, friendly_name=None)",
+        "constructor": "JarvisSecret(key, description, scope, value_type, required=True, is_sensitive=True, friendly_name=None, enum_values=None, presets=None)",
         "allowed_scopes": ["integration", "node"],
         "allowed_value_types": ["string", "int", "bool"],
         "example": 'JarvisSecret(key="WEATHER_API_KEY", description="OpenWeather API key", scope="integration", value_type="string")',
@@ -66,6 +84,8 @@ class JarvisSecret(IJarvisSecret):
             "Set is_sensitive=False for non-secret config like URLs, units, locations",
             "friendly_name is shown in the mobile settings UI instead of the key",
             "Commands sharing an AuthenticationConfig provider share secrets automatically",
+            "Use enum_values to constrain a secret to specific allowed values (mobile renders a dropdown)",
+            "Use presets to auto-fill related secrets when an enum value is chosen (e.g. provider-specific IMAP settings)",
         ],
     }
 
@@ -78,6 +98,8 @@ class JarvisSecret(IJarvisSecret):
         required: bool = True,
         is_sensitive: bool = True,
         friendly_name: str | None = None,
+        enum_values: list[str] | None = None,
+        presets: dict[str, dict[str, str]] | None = None,
     ):
         self._key = key
         self._description = description
@@ -91,6 +113,20 @@ class JarvisSecret(IJarvisSecret):
         self._required = required
         self._is_sensitive = is_sensitive
         self._friendly_name = friendly_name
+
+        if enum_values is not None and value_type != "string":
+            raise ValueError(f"enum_values requires value_type='string' for {key}")
+        self._enum_values = enum_values
+
+        if presets is not None:
+            if enum_values is None:
+                raise ValueError(f"presets requires enum_values for {key}")
+            invalid_keys = set(presets.keys()) - set(enum_values)
+            if invalid_keys:
+                raise ValueError(
+                    f"Preset keys {invalid_keys} not in enum_values for {key}"
+                )
+        self._presets = presets
 
     @property
     def is_sensitive(self) -> bool:
@@ -119,3 +155,11 @@ class JarvisSecret(IJarvisSecret):
     @property
     def required(self) -> bool:
         return self._required
+
+    @property
+    def enum_values(self) -> list[str] | None:
+        return self._enum_values
+
+    @property
+    def presets(self) -> dict[str, dict[str, str]] | None:
+        return self._presets

@@ -196,6 +196,42 @@ class TestJarvisSecret:
         s = JarvisSecret("URL", "URL", "integration", "string", is_sensitive=False)
         assert s.is_sensitive is False
 
+    def test_enum_values(self):
+        s = JarvisSecret("P", "provider", "integration", "string", enum_values=["a", "b"])
+        assert s.enum_values == ["a", "b"]
+
+    def test_enum_values_default_none(self):
+        s = JarvisSecret("K", "d", "integration", "string")
+        assert s.enum_values is None
+
+    def test_presets(self):
+        s = JarvisSecret(
+            "P", "provider", "integration", "string",
+            enum_values=["x", "y"],
+            presets={"x": {"HOST": "example.com", "PORT": "993"}},
+        )
+        assert s.presets == {"x": {"HOST": "example.com", "PORT": "993"}}
+
+    def test_presets_default_none(self):
+        s = JarvisSecret("K", "d", "integration", "string")
+        assert s.presets is None
+
+    def test_enum_requires_string_type(self):
+        with pytest.raises(ValueError, match="enum_values requires value_type='string'"):
+            JarvisSecret("K", "d", "integration", "int", enum_values=["a"])
+
+    def test_presets_requires_enum(self):
+        with pytest.raises(ValueError, match="presets requires enum_values"):
+            JarvisSecret("K", "d", "integration", "string", presets={"a": {"X": "1"}})
+
+    def test_preset_keys_must_be_in_enum(self):
+        with pytest.raises(ValueError, match="not in enum_values"):
+            JarvisSecret(
+                "K", "d", "integration", "string",
+                enum_values=["a", "b"],
+                presets={"c": {"X": "1"}},
+            )
+
 
 # ── AuthenticationConfig tests ─────────────────────────────────────────────
 
