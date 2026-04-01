@@ -56,15 +56,16 @@ class StorageBackend(ABC):
     # -- Secrets --
 
     @abstractmethod
-    def get_secret(self, key: str, scope: str) -> str | None: ...
+    def get_secret(self, key: str, scope: str, user_id: int | None = None) -> str | None: ...
 
     @abstractmethod
     def set_secret(
-        self, key: str, value: str, scope: str, value_type: str = "string"
+        self, key: str, value: str, scope: str, value_type: str = "string",
+        user_id: int | None = None,
     ) -> None: ...
 
     @abstractmethod
-    def delete_secret(self, key: str, scope: str) -> None: ...
+    def delete_secret(self, key: str, scope: str, user_id: int | None = None) -> None: ...
 
 
 # Global backend instance, set by the node runtime at startup
@@ -133,11 +134,19 @@ class JarvisStorage:
 
     # -- Secrets --
 
+    def _resolve_user_id(self, scope: str) -> int | None:
+        """Get user_id from context when scope is 'user'."""
+        if scope == "user":
+            from .context import get_current_user_id
+            return get_current_user_id()
+        return None
+
     def get_secret(self, key: str, scope: str | None = None) -> str | None:
         """Get a secret value. Uses the instance's default scope if not specified."""
         if _backend is None:
             return None
-        return _backend.get_secret(key, scope or self._secret_scope)
+        resolved_scope = scope or self._secret_scope
+        return _backend.get_secret(key, resolved_scope, user_id=self._resolve_user_id(resolved_scope))
 
     def set_secret(
         self,
@@ -149,10 +158,12 @@ class JarvisStorage:
         """Set a secret value. Uses the instance's default scope if not specified."""
         if _backend is None:
             return
-        _backend.set_secret(key, value, scope or self._secret_scope, value_type)
+        resolved_scope = scope or self._secret_scope
+        _backend.set_secret(key, value, resolved_scope, value_type, user_id=self._resolve_user_id(resolved_scope))
 
     def delete_secret(self, key: str, scope: str | None = None) -> None:
         """Delete a secret."""
         if _backend is None:
             return
-        _backend.delete_secret(key, scope or self._secret_scope)
+        resolved_scope = scope or self._secret_scope
+        _backend.delete_secret(key, resolved_scope, user_id=self._resolve_user_id(resolved_scope))

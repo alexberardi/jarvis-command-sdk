@@ -23,6 +23,7 @@ from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceCont
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
 from .prompt_provider import IJarvisPromptProvider
 from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
+from .context import get_current_user_id, set_current_user_id
 from .date_keys import DateKeys, ALL_DATE_KEYS
 from .geocoding import GeocodingHelper, GeocodingResult
 from .settings import UserSettings
@@ -78,6 +79,9 @@ __all__ = [
     "GeocodingResult",
     # Settings
     "UserSettings",
+    # User context
+    "get_current_user_id",
+    "set_current_user_id",
     # Forge spec generation
     "generate_spec",
     "generate_spec_markdown",

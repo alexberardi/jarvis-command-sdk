@@ -115,7 +115,7 @@ MANIFEST_SCHEMA: dict[str, Any] = {
             "description": "API keys, URLs, and config values stored encrypted on the node",
             "item_fields": {
                 "key": {"type": "string", "required": True, "description": "Unique key (e.g., 'WEATHER_API_KEY')"},
-                "scope": {"type": "string", "required": True, "valid_values": ["integration", "node"]},
+                "scope": {"type": "string", "required": True, "valid_values": ["integration", "node", "user"]},
                 "value_type": {"type": "string", "required": True, "valid_values": ["string", "int", "bool"]},
                 "description": {"type": "string"},
                 "required": {"type": "bool", "default": True},

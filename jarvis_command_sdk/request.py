@@ -14,3 +14,4 @@ class RequestInformation:
     conversation_id: str
     is_validation_response: bool = False
     validation_context: Optional[Dict[str, Any]] = None
+    user_id: Optional[int] = None

@@ -180,6 +180,10 @@ class TestJarvisSecret:
         assert s.required is True
         assert s.is_sensitive is True
 
+    def test_user_scope(self):
+        s = JarvisSecret("IMAP_USER", "Email username", "user", "string")
+        assert s.scope == "user"
+
     def test_invalid_scope(self):
         with pytest.raises(ValueError, match="Scope must be"):
             JarvisSecret("K", "d", "invalid", "string")
