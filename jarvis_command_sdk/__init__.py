@@ -19,7 +19,7 @@ from .response import CommandResponse
 from .request import RequestInformation
 from .validation import ValidationResult
 from .agent import IJarvisAgent, AgentSchedule, Alert
-from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
+from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult, InputRequest
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
 from .prompt_provider import IJarvisPromptProvider
 from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
@@ -61,6 +61,7 @@ __all__ = [
     "IJarvisDeviceProtocol",
     "DiscoveredDevice",
     "DeviceControlResult",
+    "InputRequest",
     # Device manager interface
     "IJarvisDeviceManager",
     "DeviceManagerDevice",

@@ -32,6 +32,29 @@ class DiscoveredDevice:
 
 
 @dataclass
+class InputRequest:
+    """Request for user input during a device operation (e.g. PIN entry for pairing).
+
+    When returned inside a DeviceControlResult, the mobile app shows a dialog
+    matching the input type, then sends a follow-up control action with the
+    user's response.
+    """
+
+    type: str  # "pin", "text", "confirm"
+    prompt: str  # "Enter the PIN shown on your Apple TV"
+    session_id: str  # Opaque ID for the follow-up action
+    follow_up_action: str = "pair_finish"  # Action name for the follow-up control call
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "type": self.type,
+            "prompt": self.prompt,
+            "session_id": self.session_id,
+            "follow_up_action": self.follow_up_action,
+        }
+
+
+@dataclass
 class DeviceControlResult:
     """Result of a device control operation."""
 
@@ -39,6 +62,7 @@ class DeviceControlResult:
     entity_id: str
     action: str
     error: str | None = None
+    input_required: InputRequest | None = None
 
 
 class IJarvisDeviceProtocol(ABC):
