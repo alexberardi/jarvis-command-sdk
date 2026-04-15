@@ -4,6 +4,7 @@ Usage:
     from jarvis_command_sdk import IJarvisCommand, CommandResponse, JarvisParameter
 """
 
+from .auth import AuthStatus, MissingSecretsError, TokenBundle
 from .command import (
     IJarvisCommand,
     PreRouteResult,
@@ -35,6 +36,10 @@ __all__ = [
     "PreRouteResult",
     "CommandExample",
     "CommandAntipattern",
+    # Auth primitives
+    "AuthStatus",
+    "MissingSecretsError",
+    "TokenBundle",
     # Parameters
     "IJarvisParameter",
     "JarvisParameter",

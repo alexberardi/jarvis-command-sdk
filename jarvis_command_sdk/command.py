@@ -1,15 +1,22 @@
 """Core command interface for the Jarvis voice assistant.
 
-This module defines the abstract IJarvisCommand interface that all voice commands
-must implement. The SDK version contains only the pure interface — node-specific
-behavior (secret validation, auth checks, token refresh) is added by the
-JarvisCommandBase in jarvis-node-setup/core/.
+This module defines IJarvisCommand — the single base class for every voice
+command, whether shipped with a node, installed via Pantry, or built by a
+third party. Everything runtime needs (param validation, secret enforcement,
+OAuth refresh, schema generation) lives on this class; hosts supply secrets
+and auth-status as inputs, not via node-local globals.
 """
 
+from __future__ import annotations
+
+import json
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, TYPE_CHECKING
 from dataclasses import dataclass
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
+from .auth import AuthStatus, MissingSecretsError, TokenBundle
 from .authentication import AuthenticationConfig
 from .parameter import IJarvisParameter
 from .secret import IJarvisSecret
@@ -462,22 +469,145 @@ class IJarvisCommand(ABC):
             return examples[0]
         raise ValueError(f"Command '{self.command_name}' has no examples")
 
+    # ── Execute (concrete) ────────────────────────────────────────────
+
+    def execute(
+        self,
+        request_info: RequestInformation,
+        *,
+        secrets: Dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> CommandResponse:
+        """Validated entry point. Hosts should call this, not `run()` directly.
+
+        Pipeline:
+        1. If `secrets` is provided, assert all required secrets are present
+           (raises MissingSecretsError). If it's None, the check is skipped —
+           the command is trusted to manage its own lookups.
+        2. Required-param presence check (raises ValueError on omissions).
+        3. `validate_call(**kwargs)` — value-level validation, returning a
+           CommandResponse.validation_error() if any fail.
+        4. Apply any auto-corrections (`suggested_value`) back into kwargs.
+        5. Delegate to `run()`, forwarding `secrets` only when it was given.
+
+        Args:
+            request_info: Request metadata (voice command, conversation id, user id).
+            secrets: Dict of secret-key → value, built by the host from its
+                secret store. Pass None when the caller explicitly wants to
+                skip secret enforcement (tests, dev-mode).
+            **kwargs: Command parameters.
+        """
+        if secrets is not None:
+            missing = [
+                s.key for s in self.required_secrets
+                if s.required and not secrets.get(s.key)
+            ]
+            if missing:
+                raise MissingSecretsError(missing)
+
+        missing_params = [
+            p.name for p in self.parameters
+            if p.required and kwargs.get(p.name) is None
+        ]
+        if missing_params:
+            raise ValueError(
+                f"Missing required params: {', '.join(missing_params)}",
+            )
+
+        results = self.validate_call(**kwargs)
+        errors = [r for r in results if not r.success]
+        if errors:
+            return CommandResponse.validation_error(errors)
+        for r in results:
+            if r.suggested_value is not None:
+                kwargs[r.param_name] = r.suggested_value
+
+        if secrets is not None:
+            return self.run(request_info, secrets=secrets, **kwargs)
+        return self.run(request_info, **kwargs)
+
+    # ── OAuth helpers (concrete) ───────────────────────────────────────
+
+    def needs_auth(
+        self,
+        *,
+        secrets: Dict[str, str],
+        auth_status: AuthStatus | None = None,
+    ) -> bool:
+        """Whether this command needs the user to (re)-authenticate.
+
+        Pure check: takes the current secrets map and an optional AuthStatus
+        (host-supplied; e.g. set when a prior request returned 401). Commands
+        with no `authentication` config return False.
+        """
+        if not self.authentication:
+            return False
+        for s in self.required_secrets:
+            if s.required and not secrets.get(s.key):
+                return True
+        if auth_status is not None and auth_status.needs_auth:
+            return True
+        return False
+
+    def refresh_token(
+        self,
+        *,
+        refresh_token: str,
+        client_secret: str | None = None,
+        timeout_seconds: float = 15.0,
+    ) -> TokenBundle | None:
+        """Standard OAuth2 `refresh_token` grant.
+
+        Returns a TokenBundle on success (caller persists). Returns None if
+        this command has no authentication config or the refresh HTTP call
+        fails. Commands with non-standard refresh flows should override this.
+        """
+        auth = self.authentication
+        if not auth or not auth.exchange_url:
+            return None
+
+        payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": auth.client_id,
+        }
+        if client_secret:
+            payload["client_secret"] = client_secret
+
+        try:
+            req = Request(
+                auth.exchange_url,
+                data=urlencode(payload).encode(),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            with urlopen(req, timeout=timeout_seconds) as resp:
+                data = json.loads(resp.read().decode())
+        except Exception:
+            return None
+
+        return TokenBundle(
+            access_token=data.get("access_token"),
+            refresh_token=data.get("refresh_token", refresh_token),
+            expires_in=data.get("expires_in"),
+            raw=data,
+        )
+
     # ── Abstract method ───────────────────────────────────────────────
 
     @abstractmethod
     def run(self, request_info: RequestInformation, **kwargs) -> CommandResponse:
         """
-        Execute the command with request information and parameters
+        Execute the command with request information and parameters.
+
+        Called by `execute()` after validation. Hosts that want secret
+        enforcement should go through `execute()`, which will pass a
+        `secrets` kwarg if it was provided.
 
         Args:
-            request_info: Information about the request from JCC
-            **kwargs: Additional parameters for the command
+            request_info: Information about the request from JCC.
+            **kwargs: Parameters + (optionally) a `secrets` dict.
 
         Returns:
-            CommandResponse object with:
-            - context_data: Raw data for the server to use in generating response
-            - success: Whether the command succeeded
-            - error_details: Any error information
-            - wait_for_input: Whether to wait for follow-up questions
+            CommandResponse object.
         """
         pass

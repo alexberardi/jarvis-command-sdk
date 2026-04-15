@@ -438,3 +438,49 @@ class TestDataClasses:
     def test_validation_result(self):
         vr = ValidationResult(success=False, param_name="p", command_name="c", message="bad")
         assert vr.success is False
+
+
+class TestExecute:
+    """execute() wraps run() with validation — covers secrets, params, enum checks."""
+
+    def test_execute_with_secrets_runs(self):
+        cmd = SampleCommand()
+        ri = RequestInformation(voice_command="test", conversation_id="c")
+        resp = cmd.execute(ri, secrets={"TEST_API_KEY": "abc"}, query="hello")
+        assert resp.success is True
+
+    def test_execute_missing_required_secret_raises(self):
+        from jarvis_command_sdk import MissingSecretsError
+        cmd = SampleCommand()
+        ri = RequestInformation(voice_command="test", conversation_id="c")
+        with pytest.raises(MissingSecretsError):
+            cmd.execute(ri, secrets={}, query="hello")
+
+    def test_execute_no_secrets_dict_skips_check(self):
+        """Caller that explicitly doesn't pass secrets gets the old behavior:
+        the command is trusted to do its own lookup. Back-compat."""
+        cmd = SampleCommand()
+        ri = RequestInformation(voice_command="test", conversation_id="c")
+        resp = cmd.execute(ri, query="hello")
+        assert resp.success is True
+
+    def test_execute_missing_required_param_raises(self):
+        cmd = SampleCommand()
+        ri = RequestInformation(voice_command="test", conversation_id="c")
+        with pytest.raises(ValueError, match="Missing required params"):
+            cmd.execute(ri, secrets={"TEST_API_KEY": "abc"})
+
+
+class TestAuthHelpers:
+    def test_needs_auth_no_config(self):
+        cmd = SampleCommand()
+        assert cmd.needs_auth(secrets={}) is False
+
+    def test_needs_auth_missing_secret(self):
+        from jarvis_command_sdk import AuthStatus
+        cmd = SampleCommand()
+        # SampleCommand has no authentication config, so still False
+        assert cmd.needs_auth(
+            secrets={},
+            auth_status=AuthStatus(needs_auth=True),
+        ) is False
