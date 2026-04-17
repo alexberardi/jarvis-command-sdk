@@ -54,6 +54,10 @@ class AuthenticationConfig:
     send_redirect_uri_in_exchange: bool = True
     supports_pkce: bool = False  # HA doesn't support PKCE, Spotify/Google do
 
+    # Client secret (for Web Application OAuth — server-side flows).
+    # When set, the token exchange includes client_secret instead of PKCE.
+    client_secret: str | None = None
+
     # Native app redirect (iOS/Android): provider redirects directly to the app
     # via a custom URL scheme. Mobile catches it, extracts the code, and POSTs
     # to JCC's /exchange endpoint. No client_secret needed (PKCE only).
@@ -94,6 +98,8 @@ class AuthenticationConfig:
             result["extra_exchange_params"] = self.extra_exchange_params
         if not self.send_redirect_uri_in_exchange:
             result["send_redirect_uri_in_exchange"] = False
+        if self.client_secret:
+            result["client_secret"] = self.client_secret
         if self.supports_pkce:
             result["supports_pkce"] = True
         if self.native_redirect_uri:
