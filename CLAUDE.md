@@ -116,3 +116,18 @@ None (pure Python, no external deps).
 - `jarvis-pantry` — Container tests install the SDK for validation; Forge uses `forge.py` for spec generation
 - `jarvis-pantry-web` — Forge UI consumes the spec via Pantry API
 - Community packages — Import interfaces for commands, agents, protocols, managers
+
+## Invariants & gotchas
+
+1. **Public API is the contract for the entire package ecosystem.** Adding a required method to `IJarvisCommand` is a breaking change that invalidates every community package. Add methods as **optional with defaults** unless the migration story is intentional.
+2. **`__forge_hints__` are load-bearing.** They drive the auto-generated Forge spec that powers AI package generation. When you add a new interface or supporting class, add `__forge_hints__` with `component_type`, `constructor_args`, `tips`, and `examples`. The Forge LLM uses this to write correct code.
+3. **No external dependencies.** Pure Python. Don't add `httpx`, `pydantic`, or anything else without a real reason — every dep gets shipped to every community package in the sandbox.
+4. **`JarvisStorage` is a facade over a backend.** The actual SQLAlchemy + SQLCipher implementation lives on the node side. Community packages get the facade; production swaps in the real backend via `set_backend()` at install time. Don't import the backend directly.
+5. **The community-package logger fallback pattern is canonical.** Every package author copies the `try: from jarvis_log_client; except ImportError: stdlib fallback` block (shown above). Don't try to make `jarvis_log_client` an SDK dependency — it's a node-only library.
+6. **Spec generation is at import time** when the Pantry calls `GET /v1/forge/spec`. If you do expensive work in `__forge_hints__` (e.g. dynamic imports), the spec endpoint slows. Keep hints declarative.
+
+## Stability
+
+The interfaces are the **public contract** with the community package ecosystem. Stability matters more here than anywhere else in the stack. Treat `IJarvisCommand`, `IJarvisAgent`, `IJarvisDeviceProtocol`, `IJarvisDeviceManager`, and `JarvisStorage` as semver-stable.
+
+When adding new functionality, **prefer optional kwargs and default-implemented base methods** over required new methods. Community packages need a graceful upgrade story.
