@@ -27,6 +27,7 @@ from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
 from .context import get_current_user_id, set_current_user_id
 from .date_keys import DateKeys, ALL_DATE_KEYS
 from .geocoding import GeocodingHelper, GeocodingResult
+from .bluetooth_audio import BluetoothAudio, BluetoothSinkInfo
 from .settings import UserSettings
 from .forge import generate_spec, generate_spec_markdown
 
@@ -83,6 +84,9 @@ __all__ = [
     # Geocoding
     "GeocodingHelper",
     "GeocodingResult",
+    # Bluetooth audio routing
+    "BluetoothAudio",
+    "BluetoothSinkInfo",
     # Settings
     "UserSettings",
     # User context
