@@ -133,6 +133,139 @@ MANIFEST_SCHEMA: dict[str, Any] = {
                 "version": {"type": "string", "description": "Version spec (e.g., '>=1.0,<2.0')"},
             },
         },
+        "apt_packages": {
+            "type": "list[string]",
+            "description": (
+                "System-level apt packages installed at command-install time via "
+                "the node's sudoers-gated `jarvis-apt-install` wrapper. Each entry "
+                "must appear in the Pantry-curated allow-list "
+                "(jarvis-pantry/config/apt-allowlist.yaml) or the submission is "
+                "rejected. Use this only for genuinely needed binaries (e.g. "
+                "media decoders); prefer pure-Python alternatives where possible."
+            ),
+        },
+        "post_install": {
+            "type": "list[object]",
+            "description": (
+                "Declarative ops the node runs after pip + apt install. Each entry "
+                "is a named op (currently: `configure_systemd_service` or "
+                "`set_config_file_value`) executed via the sudoers-gated "
+                "`jarvis-post-install` wrapper. Pantry validates each op's target "
+                "against `jarvis-pantry/config/post-install-allowlist.yaml`; "
+                "off-allowlist ops are rejected at submission. Use this for the "
+                "minimal config a declared apt_packages dependency needs to be "
+                "usable by the package — e.g. switching shairport-sync's audio "
+                "backend to PulseAudio. Token `${UID}` expands to the resolved "
+                "run_as user's numeric UID at install time."
+            ),
+            "item_fields": {
+                "type": {
+                    "type": "string",
+                    "required": True,
+                    "valid_values": ["configure_systemd_service", "set_config_file_value"],
+                    "description": "The op type — each has its own parameter set (below).",
+                },
+
+                # ── configure_systemd_service ───────────────────────────────
+                "service": {
+                    "type": "string",
+                    "description": (
+                        "(configure_systemd_service) Name of the systemd unit to "
+                        "configure. Must be allow-listed in Pantry."
+                    ),
+                },
+                "run_as": {
+                    "type": "string",
+                    "description": (
+                        "(configure_systemd_service) Username the service should "
+                        "run as. Use the sentinel `jarvis_user` to inherit the "
+                        "User= of the node's own jarvis-node systemd unit — "
+                        "needed when the service must share the node's "
+                        "PulseAudio/PipeWire session. Literal usernames must "
+                        "match jarvis_user for safety on multi-user systems."
+                    ),
+                },
+                "group": {
+                    "type": "string",
+                    "description": (
+                        "(configure_systemd_service) Optional Group= override "
+                        "(e.g. `audio` so the service can access /dev/snd/*)."
+                    ),
+                },
+                "environment": {
+                    "type": "dict[string, string]",
+                    "description": (
+                        "(configure_systemd_service) Env vars set on the service. "
+                        "`${UID}` in any value expands to the run_as user's UID, "
+                        "useful for `XDG_RUNTIME_DIR=/run/user/${UID}` and "
+                        "`PULSE_RUNTIME_PATH=/run/user/${UID}/pulse`."
+                    ),
+                },
+                "wants": {
+                    "type": "list[string]",
+                    "description": (
+                        "(configure_systemd_service) systemd Wants= units. "
+                        "`${UID}` expands. Typical: `user@${UID}.service`."
+                    ),
+                },
+                "after": {
+                    "type": "list[string]",
+                    "description": (
+                        "(configure_systemd_service) systemd After= units. "
+                        "`${UID}` expands. Should usually mirror `wants`."
+                    ),
+                },
+                "restart": {
+                    "type": "string",
+                    "description": (
+                        "(configure_systemd_service) systemd Restart= value "
+                        "(e.g. `on-failure`, `always`)."
+                    ),
+                },
+                "restart_sec": {
+                    "type": "int",
+                    "description": (
+                        "(configure_systemd_service) systemd RestartSec= in seconds."
+                    ),
+                },
+
+                # ── set_config_file_value ───────────────────────────────────
+                "file": {
+                    "type": "string",
+                    "description": (
+                        "(set_config_file_value) Path of the config file to edit. "
+                        "Must be allow-listed in Pantry."
+                    ),
+                },
+                "format": {
+                    "type": "string",
+                    "valid_values": ["libconfig"],
+                    "description": (
+                        "(set_config_file_value) Config file format. Only "
+                        "`libconfig` (shairport-sync style) is supported today; "
+                        "ini/yaml may be added."
+                    ),
+                },
+                "section": {
+                    "type": "string",
+                    "description": (
+                        "(set_config_file_value) Top-level block in the config "
+                        "(e.g. `general` for shairport-sync.conf)."
+                    ),
+                },
+                "key": {
+                    "type": "string",
+                    "description": "(set_config_file_value) Key within the section.",
+                },
+                "value": {
+                    "type": "string",
+                    "description": (
+                        "(set_config_file_value) Value to set. Wrapping quotes "
+                        "are added by the wrapper as required for the format."
+                    ),
+                },
+            },
+        },
         "authentication": {
             "type": "object",
             "description": "OAuth config (only if calling external APIs that require OAuth)",

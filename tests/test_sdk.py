@@ -484,3 +484,76 @@ class TestAuthHelpers:
             secrets={},
             auth_status=AuthStatus(needs_auth=True),
         ) is False
+
+
+class TestForgeManifestSchemaAptPackages:
+    """The Forge LLM reads MANIFEST_SCHEMA to know what fields are valid.
+    Without `apt_packages` in there, the LLM either invents an alternative
+    or omits the field entirely — both produce non-functional packages."""
+
+    def test_apt_packages_in_manifest_schema(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        fields = MANIFEST_SCHEMA["fields"]
+        assert "apt_packages" in fields
+        assert fields["apt_packages"]["type"] == "list[string]"
+
+    def test_apt_packages_documented_with_allowlist_constraint(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        desc = MANIFEST_SCHEMA["fields"]["apt_packages"]["description"]
+        # Authors generating via Forge need to know packages aren't free-form.
+        assert "allow-list" in desc.lower() or "allowlist" in desc.lower()
+
+    def test_generate_spec_surfaces_apt_packages(self):
+        from jarvis_command_sdk.forge import generate_spec
+        spec = generate_spec()
+        assert "apt_packages" in spec["manifest_schema"]["fields"]
+
+    def test_generate_spec_markdown_mentions_apt_packages(self):
+        from jarvis_command_sdk.forge import generate_spec_markdown
+        md = generate_spec_markdown()
+        assert "apt_packages" in md
+
+
+class TestForgeManifestSchemaPostInstall:
+    """`post_install` is what lets a package wire up the system config a
+    declared apt dep needs. The schema must expose both named ops + their
+    parameters so the Forge LLM can generate valid manifests."""
+
+    def test_post_install_in_manifest_schema(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        fields = MANIFEST_SCHEMA["fields"]
+        assert "post_install" in fields
+        assert fields["post_install"]["type"] == "list[object]"
+
+    def test_post_install_advertises_named_ops(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        item_fields = MANIFEST_SCHEMA["fields"]["post_install"]["item_fields"]
+        assert item_fields["type"]["valid_values"] == [
+            "configure_systemd_service", "set_config_file_value",
+        ]
+
+    def test_post_install_documents_configure_systemd_service_params(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        item_fields = MANIFEST_SCHEMA["fields"]["post_install"]["item_fields"]
+        for key in ("service", "run_as", "group", "environment",
+                    "wants", "after", "restart", "restart_sec"):
+            assert key in item_fields, f"missing {key} in post_install item_fields"
+
+    def test_post_install_documents_set_config_file_value_params(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        item_fields = MANIFEST_SCHEMA["fields"]["post_install"]["item_fields"]
+        for key in ("file", "format", "section", "key", "value"):
+            assert key in item_fields, f"missing {key} in post_install item_fields"
+
+    def test_post_install_warns_about_allowlist(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        desc = MANIFEST_SCHEMA["fields"]["post_install"]["description"]
+        # Authors generating via Forge need to know ops are gated.
+        assert "allow-list" in desc.lower() or "allowlist" in desc.lower()
+
+    def test_generate_spec_markdown_mentions_post_install(self):
+        from jarvis_command_sdk.forge import generate_spec_markdown
+        md = generate_spec_markdown()
+        assert "post_install" in md
+        assert "configure_systemd_service" in md
+        assert "set_config_file_value" in md
