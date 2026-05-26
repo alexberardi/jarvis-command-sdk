@@ -75,12 +75,11 @@ class JarvisSecret(IJarvisSecret):
     __forge_hints__ = {
         "role": "Declares a secret (API key, URL, config) stored encrypted on the node",
         "constructor": "JarvisSecret(key, description, scope, value_type, required=True, is_sensitive=True, friendly_name=None, enum_values=None, presets=None)",
-        "allowed_scopes": ["integration", "node", "user"],
+        "allowed_scopes": ["integration", "user"],
         "allowed_value_types": ["string", "int", "bool"],
         "example": 'JarvisSecret(key="WEATHER_API_KEY", description="OpenWeather API key", scope="integration", value_type="string")',
         "tips": [
-            "scope='integration' means shared across all nodes in a household",
-            "scope='node' means per-node (e.g., hardware-specific config)",
+            "scope='integration' means shared across the household (every node sees the same value)",
             "scope='user' means per-user (e.g., personal email credentials — each family member has their own)",
             "Set is_sensitive=False for non-secret config like URLs, units, locations",
             "friendly_name is shown in the mobile settings UI instead of the key",
@@ -104,8 +103,8 @@ class JarvisSecret(IJarvisSecret):
     ):
         self._key = key
         self._description = description
-        if scope not in ("integration", "node", "user"):
-            raise ValueError(f"Scope must be integration, node or user for {key}")
+        if scope not in ("integration", "user"):
+            raise ValueError(f"Scope must be integration or user for {key}")
         self._scope = scope
 
         if value_type != "int" and value_type != "string" and value_type != "bool":

@@ -10,6 +10,7 @@ and auth-status as inputs, not via node-local globals.
 from __future__ import annotations
 
 import json
+import re
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, TYPE_CHECKING
 from dataclasses import dataclass
@@ -38,6 +39,41 @@ class PreRouteResult:
     """
     arguments: Dict[str, Any]
     spoken_response: str | None = None
+
+
+@dataclass
+class FastPathPattern:
+    """A declarative regex pattern that bypasses the LLM.
+
+    Surfaced to the mobile app so users can inspect and disable individual
+    patterns when they conflict with another package's claims. The default
+    `IJarvisCommand.pre_route()` impl iterates declared patterns, skips any
+    in `disabled_pattern_ids`, regex-matches each, and dispatches to the
+    named handler method. Commands with parsing too complex for a single
+    regex should override `pre_route()` directly and honor the disabled set
+    in their own logic — they can still declare patterns here as metadata
+    so the inspect UI shows them.
+
+    Pattern ID must be stable across package versions (don't derive it from
+    the regex string) so a user's "disabled" toggle survives package updates.
+    """
+
+    __forge_hints__ = {
+        "role": "Declares a regex this command can fast-path without the LLM",
+        "tips": [
+            "id must be stable across package versions, e.g. 'weather.current' or 'timer.set'",
+            "description and example are shown in the mobile inspect/toggle UI",
+            "regex is substring-searched in the raw transcript (case-insensitive); anchor with ^ for start-only match",
+            "handler is the method name on the command (signature: handler(self, match: re.Match, voice_command: str) -> PreRouteResult | None)",
+            "regex/handler may be omitted if the command overrides pre_route() and only declares patterns for inspect-UI display",
+        ],
+    }
+
+    id: str
+    description: str
+    example: str
+    regex: str | None = None
+    handler: str | None = None
 
 
 @dataclass
@@ -95,6 +131,7 @@ class IJarvisCommand(ABC):
             "Use JarvisSecret for API keys or config — secrets are stored encrypted on the node",
             "Keywords help fuzzy-match voice commands to this command during routing",
             "Override setup_guide to return Markdown with step-by-step instructions for getting API keys or enabling integrations — shown in the mobile app",
+            "Optionally declare fast_path_patterns (list of FastPathPattern) to opt into LLM-bypass for deterministic phrasings; the default pre_route() iterates patterns and dispatches to the named handler method",
         ],
         "example_import": "from jarvis_command_sdk import IJarvisCommand, CommandResponse, JarvisParameter, JarvisSecret, CommandExample, RequestInformation",
     }
@@ -259,16 +296,67 @@ class IJarvisCommand(ABC):
                 ))
         return results
 
-    def pre_route(self, voice_command: str) -> PreRouteResult | None:
+    @property
+    def fast_path_patterns(self) -> List[FastPathPattern]:
+        """Declarative regex patterns this command claims for the LLM-bypass fast path.
+
+        Patterns are surfaced to the mobile app for inspection and per-pattern
+        disabling. The default `pre_route()` implementation iterates these
+        patterns, skips any in `disabled_pattern_ids`, regex-matches against
+        the voice command, and dispatches to the pattern's `handler` method.
+
+        Commands with custom parsing should override `pre_route()` directly
+        but should still declare patterns here as metadata (with `regex=None`
+        and `handler=None`) so the mobile inspect UI can show and disable them.
+
+        Returns:
+            List of FastPathPattern (default: empty — no fast-path coverage).
+        """
+        return []
+
+    def pre_route(
+        self,
+        voice_command: str,
+        *,
+        disabled_pattern_ids: "set[str] | frozenset[str]" = frozenset(),
+    ) -> PreRouteResult | None:
         """Deterministic matching -- bypass the command center entirely.
 
-        Override to claim short/unambiguous utterances that don't need LLM
-        inference (e.g. "pause", "skip", "volume 50").
+        Default impl: iterates `fast_path_patterns`, skips any whose `id` is
+        in `disabled_pattern_ids`, searches each pattern's regex in the voice
+        command (case-insensitive, substring match — anchor with `^` for
+        start-of-string), and dispatches to the declared handler method on
+        this command.
+
+        Override to claim short/unambiguous utterances that don't fit the
+        declarative pattern shape (e.g. multi-step parsers like time
+        durations). Overrides must still honor `disabled_pattern_ids` --
+        check the set before claiming an utterance for a declared pattern.
+
+        Args:
+            voice_command: The raw transcript to match against.
+            disabled_pattern_ids: Pattern IDs the user has disabled via the
+                mobile inspect UI. The default impl skips matching patterns
+                whose `id` is in this set.
 
         Returns:
             PreRouteResult with arguments for execute(), or None to fall
             through to the normal LLM path.
         """
+        for pattern in self.fast_path_patterns:
+            if pattern.id in disabled_pattern_ids:
+                continue
+            if not pattern.regex or not pattern.handler:
+                continue
+            match = re.search(pattern.regex, voice_command, re.IGNORECASE)
+            if not match:
+                continue
+            handler_fn = getattr(self, pattern.handler, None)
+            if handler_fn is None:
+                continue
+            result = handler_fn(match, voice_command)
+            if result is not None:
+                return result
         return None
 
     def post_process_tool_call(self, args: Dict[str, Any], voice_command: str) -> Dict[str, Any]:

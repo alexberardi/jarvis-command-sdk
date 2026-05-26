@@ -15,6 +15,7 @@ from jarvis_command_sdk import (
     CommandExample,
     CommandAntipattern,
     PreRouteResult,
+    FastPathPattern,
 )
 
 
@@ -193,8 +194,13 @@ class TestJarvisSecret:
             JarvisSecret("K", "d", "integration", "float")
 
     def test_friendly_name(self):
-        s = JarvisSecret("K", "d", "node", "string", friendly_name="My Key")
+        s = JarvisSecret("K", "d", "integration", "string", friendly_name="My Key")
         assert s.friendly_name == "My Key"
+
+    def test_rejects_node_scope(self):
+        # "node" was collapsed into "integration" — declaring it should fail loudly.
+        with pytest.raises(ValueError, match="Scope must be"):
+            JarvisSecret("K", "d", "node", "string")
 
     def test_not_sensitive(self):
         s = JarvisSecret("URL", "URL", "integration", "string", is_sensitive=False)
@@ -380,6 +386,127 @@ class TestIJarvisCommand:
         cmd = SampleCommand()
         assert cmd.pre_route("test") is None
 
+    def test_pre_route_accepts_disabled_kwarg(self):
+        cmd = SampleCommand()
+        assert cmd.pre_route("test", disabled_pattern_ids=frozenset({"foo"})) is None
+
+    def test_fast_path_patterns_default_empty(self):
+        cmd = SampleCommand()
+        assert cmd.fast_path_patterns == []
+
+    def test_pre_route_default_dispatches_to_handler(self):
+        class FastCmd(SampleCommand):
+            @property
+            def fast_path_patterns(self):
+                return [
+                    FastPathPattern(
+                        id="sample.ping",
+                        description="Quick ping",
+                        example="ping",
+                        regex=r"\bping\b",
+                        handler="_ping_handler",
+                    ),
+                ]
+
+            def _ping_handler(self, match, voice_command):
+                return PreRouteResult(arguments={}, spoken_response="pong")
+
+        cmd = FastCmd()
+        result = cmd.pre_route("please ping the host")
+        assert result is not None
+        assert result.spoken_response == "pong"
+
+    def test_pre_route_default_skips_disabled(self):
+        class FastCmd(SampleCommand):
+            @property
+            def fast_path_patterns(self):
+                return [
+                    FastPathPattern(
+                        id="sample.ping",
+                        description="Quick ping",
+                        example="ping",
+                        regex=r"\bping\b",
+                        handler="_ping_handler",
+                    ),
+                ]
+
+            def _ping_handler(self, match, voice_command):
+                return PreRouteResult(arguments={}, spoken_response="pong")
+
+        cmd = FastCmd()
+        result = cmd.pre_route("ping", disabled_pattern_ids={"sample.ping"})
+        assert result is None
+
+    def test_pre_route_default_case_insensitive(self):
+        class FastCmd(SampleCommand):
+            @property
+            def fast_path_patterns(self):
+                return [
+                    FastPathPattern(
+                        id="sample.hello",
+                        description="Hello",
+                        example="hello",
+                        regex=r"^hello$",
+                        handler="_handler",
+                    ),
+                ]
+
+            def _handler(self, match, voice_command):
+                return PreRouteResult(arguments={}, spoken_response="hi")
+
+        cmd = FastCmd()
+        assert cmd.pre_route("HELLO") is not None
+        assert cmd.pre_route("Hello") is not None
+
+    def test_pre_route_default_skips_pattern_without_handler_or_regex(self):
+        # Patterns declared as inspect-UI-only metadata (no regex/handler)
+        # must not cause an error -- they're simply skipped by the default impl.
+        class FastCmd(SampleCommand):
+            @property
+            def fast_path_patterns(self):
+                return [
+                    FastPathPattern(
+                        id="sample.metadata_only",
+                        description="Metadata only",
+                        example="anything",
+                    ),
+                ]
+
+        cmd = FastCmd()
+        assert cmd.pre_route("anything") is None
+
+    def test_pre_route_falls_through_when_handler_returns_none(self):
+        class FastCmd(SampleCommand):
+            @property
+            def fast_path_patterns(self):
+                return [
+                    FastPathPattern(
+                        id="sample.first",
+                        description="First",
+                        example="x",
+                        regex=r"^.*$",
+                        handler="_returns_none",
+                    ),
+                    FastPathPattern(
+                        id="sample.second",
+                        description="Second",
+                        example="x",
+                        regex=r"^.*$",
+                        handler="_returns_result",
+                    ),
+                ]
+
+            def _returns_none(self, match, voice_command):
+                return None
+
+            def _returns_result(self, match, voice_command):
+                return PreRouteResult(arguments={}, spoken_response="ok")
+
+        cmd = FastCmd()
+        result = cmd.pre_route("x")
+        assert result is not None
+        assert result.spoken_response == "ok"
+
     def test_post_process_passthrough(self):
         cmd = SampleCommand()
         args = {"query": "test"}
@@ -426,6 +553,24 @@ class TestDataClasses:
         pr = PreRouteResult(arguments={"key": "val"}, spoken_response="done")
         assert pr.arguments == {"key": "val"}
         assert pr.spoken_response == "done"
+
+    def test_fast_path_pattern_minimal(self):
+        # Metadata-only pattern (for inspect UI when command overrides pre_route)
+        p = FastPathPattern(id="x.y", description="desc", example="ex")
+        assert p.id == "x.y"
+        assert p.regex is None
+        assert p.handler is None
+
+    def test_fast_path_pattern_full(self):
+        p = FastPathPattern(
+            id="weather.current",
+            description="Quick weather",
+            example="what's the weather",
+            regex=r"(what'?s|what is) the weather",
+            handler="quick_weather",
+        )
+        assert p.regex.startswith("(what")
+        assert p.handler == "quick_weather"
 
     def test_command_example(self):
         ex = CommandExample("turn on lights", {"room": "kitchen"}, is_primary=True)

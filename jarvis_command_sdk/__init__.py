@@ -8,6 +8,7 @@ from .auth import AuthStatus, MissingSecretsError, TokenBundle
 from .command import (
     IJarvisCommand,
     PreRouteResult,
+    FastPathPattern,
     CommandExample,
     CommandAntipattern,
 )
@@ -35,6 +36,7 @@ __all__ = [
     # Command interface
     "IJarvisCommand",
     "PreRouteResult",
+    "FastPathPattern",
     "CommandExample",
     "CommandAntipattern",
     # Auth primitives
