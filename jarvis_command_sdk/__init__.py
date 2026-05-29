@@ -29,6 +29,7 @@ from .context import get_current_user_id, set_current_user_id
 from .date_keys import DateKeys, ALL_DATE_KEYS
 from .geocoding import GeocodingHelper, GeocodingResult
 from .bluetooth_audio import BluetoothAudio, BluetoothSinkInfo
+from .process import process_alive
 from .settings import UserSettings
 from .forge import generate_spec, generate_spec_markdown
 
@@ -89,6 +90,8 @@ __all__ = [
     # Bluetooth audio routing
     "BluetoothAudio",
     "BluetoothSinkInfo",
+    # Process introspection
+    "process_alive",
     # Settings
     "UserSettings",
     # User context
