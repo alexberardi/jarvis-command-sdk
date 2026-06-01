@@ -11,6 +11,7 @@ from .command import (
     FastPathPattern,
     CommandExample,
     CommandAntipattern,
+    callback,
 )
 from .parameter import IJarvisParameter, JarvisParameter
 from .secret import IJarvisSecret, JarvisSecret
@@ -40,6 +41,7 @@ __all__ = [
     "FastPathPattern",
     "CommandExample",
     "CommandAntipattern",
+    "callback",
     # Auth primitives
     "AuthStatus",
     "MissingSecretsError",
@@ -102,4 +104,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

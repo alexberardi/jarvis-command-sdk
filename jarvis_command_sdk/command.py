@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, TYPE_CHECKING
+from typing import List, Dict, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -104,6 +104,32 @@ class CommandAntipattern:
     description: str
 
 
+def callback(name: str):
+    """Mark a method as a named interactive-notification callback.
+
+    Decorated methods are dispatched by the node runtime when a tappable
+    element in a rich inbox item is activated in the mobile app. The flow:
+    mobile tap -> POST to command-center -> CC publishes job_id over MQTT ->
+    node fetches the full {command, callback, data} payload over authenticated
+    HTTPS -> node looks up the command and calls the method bound to ``name``.
+
+    Decorated methods receive ``(data: dict, request_info: RequestInformation)``
+    and must return a CommandResponse (the runtime turns it into a follow-up
+    inbox item, same plumbing as ``handle_action``).
+
+    Names are unique per command. Use ``IJarvisCommand.get_callbacks()`` to
+    introspect what's registered on an instance.
+    """
+    if not isinstance(name, str) or not name:
+        raise ValueError("@callback requires a non-empty string name")
+
+    def decorator(func: Callable[..., "CommandResponse"]) -> Callable[..., "CommandResponse"]:
+        func.__jarvis_callback_name__ = name  # type: ignore[attr-defined]
+        return func
+
+    return decorator
+
+
 class IJarvisCommand(ABC):
     """Abstract interface for Jarvis voice commands.
 
@@ -132,6 +158,7 @@ class IJarvisCommand(ABC):
             "Keywords help fuzzy-match voice commands to this command during routing",
             "Override setup_guide to return Markdown with step-by-step instructions for getting API keys or enabling integrations — shown in the mobile app",
             "Optionally declare fast_path_patterns (list of FastPathPattern) to opt into LLM-bypass for deterministic phrasings; the default pre_route() iterates patterns and dispatches to the named handler method",
+            "Decorate methods with @callback('name') to expose them as interactive-notification callbacks (tapped from rich inbox items in the mobile app); signature is (self, data: dict, request_info: RequestInformation) -> CommandResponse",
         ],
         "example_import": "from jarvis_command_sdk import IJarvisCommand, CommandResponse, JarvisParameter, JarvisSecret, CommandExample, RequestInformation",
     }
@@ -393,6 +420,45 @@ class IJarvisCommand(ABC):
         return CommandResponse.error_response(
             error_details=f"Action '{action_name}' is not supported by {self.command_name}."
         )
+
+    def get_callbacks(self) -> Dict[str, Callable[..., CommandResponse]]:
+        """Return ``{callback_name: bound_method}`` for methods decorated with ``@callback``.
+
+        Walks the class MRO most-derived-first and collects methods carrying
+        the ``__jarvis_callback_name__`` marker. Subclass overrides win (a
+        subclass method with the same callback name shadows the parent's).
+
+        Inspects each class's ``__dict__`` directly rather than walking
+        ``dir(self)`` so that subclass-defined property getters aren't
+        invoked as a side-effect of introspection.
+
+        Raises ``ValueError`` if a single class declares two methods with
+        the same callback name — that's a programming bug, not a runtime
+        condition.
+
+        Returns an empty dict for commands with no decorated callbacks
+        (the default for every existing command).
+        """
+        callbacks: Dict[str, Callable[..., CommandResponse]] = {}
+        for klass in type(self).__mro__:
+            seen_in_class: set[str] = set()
+            for attr_name, attr in vars(klass).items():
+                if not callable(attr):
+                    continue
+                cb_name = getattr(attr, "__jarvis_callback_name__", None)
+                if cb_name is None:
+                    continue
+                if cb_name in seen_in_class:
+                    raise ValueError(
+                        f"Command '{type(self).__name__}' declares multiple "
+                        f"@callback methods with name '{cb_name}' in class "
+                        f"{klass.__name__}"
+                    )
+                seen_in_class.add(cb_name)
+                if cb_name in callbacks:
+                    continue  # already claimed by a more-derived class
+                callbacks[cb_name] = getattr(self, attr_name)
+        return callbacks
 
     def store_auth_values(self, values: dict[str, str]) -> None:
         """Called when auth tokens are delivered from mobile via config push.
