@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Optional, Dict, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .button import IJarvisButton
@@ -57,6 +57,19 @@ class CommandResponse:
     is_chunked_response: bool = False
     chunk_session_id: Optional[str] = None
 
+    # Optional callable the voice pipeline invokes after the spoken response
+    # has finished and the wake-word duck has been released. Use for media
+    # commands (Spotify, Music Assistant, Pandora, ...) that would otherwise
+    # start audio playback while the duck is still parking sink-inputs on
+    # the null sink, causing the first few seconds of the track to be lost.
+    # The handler should do all the synchronous resolution (search, station
+    # lookup, transfer-playback, etc.) and return the spoken message in
+    # context_data["message"]; the callable does only the final "start the
+    # audio now" step. Local-only — never serialized to wire or LLM.
+    on_response_complete: Optional[Callable[[], None]] = field(
+        default=None, repr=False, compare=False,
+    )
+
     def __post_init__(self) -> None:
         """Validate the response structure"""
         # If there's an error, success should be False
@@ -72,14 +85,21 @@ class CommandResponse:
         cls,
         context_data: Optional[Dict[str, Any]] = None,
         wait_for_input: bool = True,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        on_response_complete: Optional[Callable[[], None]] = None,
     ) -> CommandResponse:
-        """Create a successful command response"""
+        """Create a successful command response.
+
+        Pass ``on_response_complete`` for media commands (Spotify, MA, Pandora)
+        that should defer audio playback until the spoken response is finished
+        and the wake-word duck is released — see field docstring above.
+        """
         return cls(
             context_data=context_data,
             success=True,
             wait_for_input=wait_for_input,
-            metadata=metadata
+            metadata=metadata,
+            on_response_complete=on_response_complete,
         )
 
     @classmethod

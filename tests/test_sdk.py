@@ -105,6 +105,19 @@ class TestCommandResponse:
         resp = CommandResponse(error_details="oops", success=True)
         assert resp.success is False
 
+    def test_on_response_complete_default_none(self):
+        resp = CommandResponse.success_response({"k": "v"})
+        assert resp.on_response_complete is None
+
+    def test_on_response_complete_carried_through_success_response(self):
+        called = []
+        resp = CommandResponse.success_response(
+            {"k": "v"}, on_response_complete=lambda: called.append("fired"),
+        )
+        assert resp.on_response_complete is not None
+        resp.on_response_complete()
+        assert called == ["fired"]
+
     def test_actions_as_dicts(self):
         btn = IJarvisButton("Click", "click_action", "primary")
         resp = CommandResponse(actions=[btn])
