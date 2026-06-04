@@ -4,11 +4,16 @@ Agents run on a schedule, collecting data and caching results for injection
 into voice request context.
 """
 
+import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 from .secret import IJarvisSecret
+
+
+_DEFAULT_TTL = timedelta(hours=1)
 
 
 @dataclass
@@ -32,12 +37,39 @@ class AgentSchedule:
 
 @dataclass
 class Alert:
-    """A time-sensitive notification produced by a background agent."""
+    """A time-sensitive notification produced by a background agent.
+
+    ``created_at`` / ``expires_at`` default to "now" and "now + 1 hour" so
+    existing call sites that only pass the four core fields keep working.
+    Producers with a real expiry should set ``expires_at`` explicitly.
+    """
 
     source_agent: str
     title: str
     summary: str
     priority: int = 2  # 1=low, 2=medium, 3=high
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+    expires_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc) + _DEFAULT_TTL,
+    )
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+    @property
+    def is_expired(self) -> bool:
+        return datetime.now(timezone.utc) > self.expires_at
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "source_agent": self.source_agent,
+            "title": self.title,
+            "summary": self.summary,
+            "priority": self.priority,
+            "created_at": self.created_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+        }
 
 
 class IJarvisAgent(ABC):

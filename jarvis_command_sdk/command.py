@@ -19,7 +19,9 @@ from urllib.request import Request, urlopen
 
 from .auth import AuthStatus, MissingSecretsError, TokenBundle
 from .authentication import AuthenticationConfig
+from .field_spec import FieldSpec
 from .parameter import IJarvisParameter
+from .record_summary import DataBrowserMode, RecordSummary
 from .secret import IJarvisSecret
 from .request import RequestInformation
 from .response import CommandResponse
@@ -299,6 +301,87 @@ class IJarvisCommand(ABC):
         Override to restrict to specific platforms, e.g. ["darwin"] for macOS-only.
         """
         return []
+
+    # ── Mobile command-data browser ───────────────────────────────────────
+    # See PRD: mobile/command-data browser. These let mobile render a
+    # structured form over rows the command persists via JarvisStorage.
+
+    @property
+    def data_browser_storage_name(self) -> str:
+        """The `command_data.command_name` value under which this command's
+        records live.
+
+        Defaults to `command_name`. Override when the JarvisStorage key
+        diverges from the LLM-facing command_name — e.g. `ReminderCommand`
+        has command_name="reminder" but persists rows under "set_reminder"
+        for historical reasons.
+
+        The mobile browser displays records under `command_name`; the node
+        uses this property to resolve which JarvisStorage rows belong to
+        which command.
+        """
+        return self.command_name
+
+    @property
+    def data_browser_mode(self) -> DataBrowserMode:
+        """Whether this command's stored data appears in the mobile browser.
+
+        - "enabled"  (default): list, view detail, edit, delete are all on.
+        - "disabled": not shown at all. The node filters before serialising
+          so disabled data never crosses the wire.
+        - "readonly": list + view detail, no edit, no delete. Reserved for
+          future mobile support — older mobile builds that don't recognise
+          the value hide the section, so commands shipping `readonly`
+          aren't accidentally exposed as fully editable.
+
+        Wire format is a plain string so new modes can ship without breaking
+        older command-center or mobile builds. Only "disabled" is filtered
+        node-side; unknown values pass through and mobile decides how to
+        render.
+
+        Override to opt out of the browser:
+            @property
+            def data_browser_mode(self) -> DataBrowserMode:
+                return "disabled"
+        """
+        return "enabled"
+
+    def editable_fields(self) -> List[FieldSpec]:
+        """Schema for the records this command persists.
+
+        Returned list drives the mobile form: each FieldSpec maps to one row
+        (text input, datetime picker, enum dropdown, etc.). Empty list means
+        the command opts out of the structured editor — the browser will
+        still list rows but render them as read-only JSON.
+
+        Default: empty.
+
+        Implementations should match the keys present in the dicts the
+        command stores via JarvisStorage. Fields the command computes
+        internally (e.g. counters, timestamps) are usually marked
+        editable=False so mobile shows them but doesn't allow edits.
+        """
+        return []
+
+    def display_summary(self, record: dict) -> RecordSummary:
+        """Title + subtitle + icon for one row of `record` in the list view.
+
+        Default: title is the first string field in `record`, subtitle is
+        None, icon is a generic "information-outline". Commands should
+        override to give meaningful list rows (e.g. a reminder uses its
+        `text` as the title and the human-formatted `due_at` as the
+        subtitle).
+
+        `record` is the raw dict the command saved via JarvisStorage. The
+        function must be tolerant of partial/legacy records (missing keys
+        from earlier schema versions): use `.get(...)` with sensible
+        fallbacks, never raise.
+        """
+        title = next(
+            (str(v) for v in record.values() if isinstance(v, str) and v),
+            self.command_name,
+        )
+        return RecordSummary(title=title)
 
     def validate_call(self, **kwargs: Any) -> list[ValidationResult]:
         """Validate parameter values before execution.

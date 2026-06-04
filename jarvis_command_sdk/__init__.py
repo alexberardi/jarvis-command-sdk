@@ -13,6 +13,8 @@ from .command import (
     CommandAntipattern,
     callback,
 )
+from .field_spec import FieldSpec
+from .record_summary import DataBrowserMode, RecordSummary
 from .parameter import IJarvisParameter, JarvisParameter
 from .secret import IJarvisSecret, JarvisSecret
 from .authentication import AuthenticationConfig
@@ -42,6 +44,10 @@ __all__ = [
     "CommandExample",
     "CommandAntipattern",
     "callback",
+    # Command-data browser
+    "FieldSpec",
+    "RecordSummary",
+    "DataBrowserMode",
     # Auth primitives
     "AuthStatus",
     "MissingSecretsError",
@@ -104,4 +110,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
