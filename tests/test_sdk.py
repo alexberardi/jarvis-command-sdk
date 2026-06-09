@@ -694,7 +694,7 @@ class TestForgeManifestSchemaPostInstall:
         from jarvis_command_sdk.forge import MANIFEST_SCHEMA
         item_fields = MANIFEST_SCHEMA["fields"]["post_install"]["item_fields"]
         for key in ("service", "run_as", "group", "environment",
-                    "wants", "after", "restart", "restart_sec"):
+                    "wants", "after", "restart", "restart_sec", "enable"):
             assert key in item_fields, f"missing {key} in post_install item_fields"
 
     def test_post_install_documents_set_config_file_value_params(self):

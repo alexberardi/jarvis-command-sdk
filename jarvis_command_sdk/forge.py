@@ -229,6 +229,18 @@ MANIFEST_SCHEMA: dict[str, Any] = {
                         "(configure_systemd_service) systemd RestartSec= in seconds."
                     ),
                 },
+                "enable": {
+                    "type": "bool",
+                    "description": (
+                        "(configure_systemd_service) Run `systemctl enable` "
+                        "so the unit auto-starts on every boot. Default false. "
+                        "Set true when the service must come back after a "
+                        "node reboot (e.g. mpd for audacy — without this the "
+                        "package works at install time but silently dies "
+                        "after the first reboot). The drop-in alone does NOT "
+                        "imply enabled; systemd treats them as orthogonal."
+                    ),
+                },
 
                 # ── set_config_file_value ───────────────────────────────────
                 "file": {
