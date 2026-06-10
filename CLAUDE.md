@@ -58,6 +58,10 @@ IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
 # Device managers
 IJarvisDeviceManager, DeviceManagerDevice
 
+# Interactive list payloads (server-driven phone UI)
+InteractiveList, InteractiveSection, InteractiveRow
+InteractiveRowAction, InteractiveAction, RequiresRecordField
+
 # Storage
 JarvisStorage, StorageBackend, set_backend, get_backend
 
@@ -105,6 +109,103 @@ from jarvis_command_sdk.forge import generate_spec, generate_spec_markdown
 spec = generate_spec()           # JSON dict
 markdown = generate_spec_markdown()  # For LLM prompts
 ```
+
+## Interactive List payloads (v1)
+
+Server-driven phone UI (`interactive.py`): a command POSTs an inbox item
+(`{cc}/api/v0/node/inbox-item`) with `category=InteractiveList.CATEGORY`
+(`"interactive_list"`) and the payload in `metadata`; the mobile app renders it on one
+generic screen. Build payloads with the SDK dataclasses — all validation happens at
+construction time (`ValueError` naming the offending field/row key):
+
+```python
+from jarvis_command_sdk import (
+    InteractiveList, InteractiveSection, InteractiveRow,
+    InteractiveRowAction, InteractiveAction, RequiresRecordField,
+)
+
+metadata = InteractiveList(
+    command_name="export_shopping_list",   # callback + record-API target
+    sections=[InteractiveSection(rows=rows, title="Regulars")],
+    actions=[InteractiveAction(label="Export {n} items", callback="export_selected")],
+    context={"provider": "walmart"},       # opaque, echoed verbatim in callbacks
+    empty_text="Nothing to export",
+).to_dict()
+```
+
+**Wire format** (what `to_dict()` emits — absent optionals are omitted, never null):
+
+```jsonc
+{
+  "type": "interactive_list",            // == InteractiveList.CATEGORY, always emitted
+  "version": 1,                          // == InteractiveList.VERSION; renderer falls back if > 1
+  "command_name": "export_shopping_list",
+  "title_override": "...",               // optional; fallback: inbox item title
+  "empty_text": "...",                   // optional; shown when all sections have zero rows
+  "context": { },                        // optional opaque dict, echoed in callbacks
+  "sections": [{ "title": "...", "rows": [   // title optional (untitled flat list)
+    {
+      "key": "milk",                     // unique across the payload; the callback identifier
+      "label": "milk",                   // ≤120 chars
+      "caption": "...",                  // optional static caption, ≤200
+      "control": "checkbox_stepper",     // "none" | "checkbox" | "checkbox_stepper"
+      "default": { "selected": true, "quantity": 2 },  // quantity only for checkbox_stepper
+      "disabled_caption": "...",         // optional, ≤200; shown when gated off
+      "requires_record_field": { "command_name": "...", "field": "...", "field_label": "..." },
+      "row_actions": [{                  // ≤2; only v1 type is "webview_pick"
+        "label": "Find ID", "type": "webview_pick",
+        "start_url": "https://...",      // https only; {label} / {value} substitutions
+        "pattern": "/ip/(?:[^/]+/)?(\\d{5,})",  // JS-compatible regex, capture group 1 = value
+        "save": { "command_name": "...", "field": "..." }
+      }]
+    }
+  ]}],
+  "actions": [                           // 1..6; {n} = live selection count
+    { "label": "Export {n} items", "callback": "export_selected", "style": "primary" }
+    // style: "primary" | "secondary" | "destructive"
+  ]
+}
+```
+
+**Caps** (validated at construction, re-enforced by the renderer with truncation):
+1–6 sections, ≤100 rows total, 1–6 actions, ≤2 row_actions per row, label ≤120 chars,
+captions ≤200 chars. All text renders as plain `<Text>` — no HTML/markdown anywhere.
+
+**The three behavioral primitives** (everything else is static rendering):
+
+1. **`requires_record_field`** — live record gate. Mobile fetches the command's records
+   at load; the row is enabled iff the record whose key equals the row's `key` has a
+   non-empty value for `field` (caption becomes `{field_label ?? field}: {value}`).
+   Unmet ⇒ disabled + `disabled_caption`, never selectable.
+2. **`webview_pick`** row action — opens a WebView at `start_url` (`{label}` =
+   URL-encoded row label, `{value}` = current saved field value; actions whose
+   `start_url` uses `{value}` are hidden until one exists). Capture group 1 of
+   `pattern` matched against navigation URLs is the picked value; confirming PATCHes
+   `{field: value}` onto the record and enables + selects the row.
+3. **Result affordances** — the callback's `CommandResponse.context_data` may contain
+   `message` (body text), `url` (auto-open + "Open link" button), `text` (selectable
+   monospace block + copy-to-clipboard), `detail_lines: [string]` (checkmarked list).
+   Convention: at most one of `url`/`text`. Unknown keys ignored.
+
+**Callback request** — every action button sends the same collected state to its
+named `@callback` on `command_name`:
+
+```jsonc
+{
+  "command_name": "export_shopping_list",
+  "callback_name": "export_selected",
+  "data": {
+    "action": "export_selected",
+    "selected": [{ "key": "milk", "quantity": 2 }],  // quantity only for checkbox_stepper rows
+    "context": { "provider": "walmart" }             // payload.context echoed; {} if absent
+  },
+  "target_node_id": "<metadata.node_id — CC-injected, never set by producers>"
+}
+```
+
+Mobile parses payloads **permissively** — unknown keys ignored, absent optionals
+defaulted — so the schema can grow additively. Malformed payloads (or `version` > 1)
+fall back to the plain inbox detail view; they never crash the app.
 
 ## Dependencies
 

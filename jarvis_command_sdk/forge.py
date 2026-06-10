@@ -21,6 +21,14 @@ from .button import IJarvisButton
 from .command import CommandExample, FastPathPattern, IJarvisCommand
 from .device_manager import DeviceManagerDevice, IJarvisDeviceManager
 from .device_protocol import DeviceControlResult, DiscoveredDevice, IJarvisDeviceProtocol
+from .interactive import (
+    InteractiveAction,
+    InteractiveList,
+    InteractiveRow,
+    InteractiveRowAction,
+    InteractiveSection,
+    RequiresRecordField,
+)
 from .package import JarvisPackage
 from .prompt_provider import IJarvisPromptProvider
 from .parameter import JarvisParameter
@@ -55,6 +63,12 @@ SUPPORTING_CLASSES: list[type] = [
     ValidationResult,
     JarvisPackage,
     IJarvisButton,
+    InteractiveList,
+    InteractiveSection,
+    InteractiveRow,
+    InteractiveRowAction,
+    InteractiveAction,
+    RequiresRecordField,
 ]
 
 # Manifest YAML schema — the source of truth for jarvis_command.yaml / jarvis_package.yaml

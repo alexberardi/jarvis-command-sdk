@@ -23,6 +23,14 @@ from .package import JarvisPackage
 from .response import CommandResponse
 from .request import RequestInformation
 from .validation import ValidationResult
+from .interactive import (
+    InteractiveList,
+    InteractiveSection,
+    InteractiveRow,
+    InteractiveRowAction,
+    InteractiveAction,
+    RequiresRecordField,
+)
 from .agent import IJarvisAgent, AgentSchedule, Alert
 from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult, InputRequest
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
@@ -70,6 +78,13 @@ __all__ = [
     "RequestInformation",
     # Validation
     "ValidationResult",
+    # Interactive list payloads
+    "InteractiveList",
+    "InteractiveSection",
+    "InteractiveRow",
+    "InteractiveRowAction",
+    "InteractiveAction",
+    "RequiresRecordField",
     # Agent interface
     "IJarvisAgent",
     "AgentSchedule",
@@ -110,4 +125,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.3.2"
