@@ -20,6 +20,7 @@ pip install -e ../jarvis-command-sdk
 | `IJarvisDeviceProtocol` | `device_protocol.py` | LAN/cloud device adapter (LIFX, Kasa, etc.) |
 | `IJarvisDeviceManager` | `device_manager.py` | Device listing backend (HA, Jarvis Direct) |
 | `JarvisStorage` | `storage.py` | Command data persistence + secrets facade |
+| `JarvisInbox` | `inbox.py` | Inbox item posting facade (push + phone UI) |
 | `DateKeys` | `date_keys.py` | Standardized relative date constants |
 | `GeocodingHelper` | `geocoding.py` | Fuzzy location → coordinates resolver |
 
@@ -64,6 +65,9 @@ InteractiveRowAction, InteractiveAction, RequiresRecordField
 
 # Storage
 JarvisStorage, StorageBackend, set_backend, get_backend
+
+# Inbox
+JarvisInbox, InboxBackend, set_inbox_backend, get_inbox_backend
 
 # Date keys
 DateKeys, ALL_DATE_KEYS
@@ -207,6 +211,36 @@ Mobile parses payloads **permissively** — unknown keys ignored, absent optiona
 defaulted — so the schema can grow additively. Malformed payloads (or `version` > 1)
 fall back to the plain inbox detail view; they never crash the app.
 
+## Posting inbox items from packages
+
+`JarvisInbox` (`inbox.py`) follows the `JarvisStorage` backend-injection pattern: the SDK
+ships the facade, the node runtime registers the real backend via `set_inbox_backend()`
+at startup, and `post()` returns `"no_backend"` (never raises) when nothing is
+registered — tests and container validation just work.
+
+```python
+from jarvis_command_sdk import JarvisInbox
+
+tag = JarvisInbox("email").post(
+    title="Inbox triage — 12 unread",
+    summary="Tap to review",
+    body="Plain-text fallback listing",         # rendered by clients without the rich view
+    category=InteractiveList.CATEGORY,
+    metadata=payload.to_dict(),
+    interactive_elements=None,                  # optional InboxDetail buttons (see inbox.py docstring)
+    create_push_notification=True,
+    target_type="user", user_id=request_info.user_id,
+)
+```
+
+`post()` returns a **discriminated string tag** — `"ok"` | `"no_backend"` | `"no_cc_url"`
+| `"http_error"` | `"invalid"` — so callers can map each failure mode to a distinct
+spoken response (never a bool, never an exception). `interactive_elements` (a list of
+button dicts dispatched to `@callback`s, shape documented in `inbox.py`) is merged into
+`metadata["interactive_elements"]`; all other fields pass through verbatim to
+`POST {cc}/api/v0/node/inbox-item`. CC injects `metadata.node_id` server-side — never
+set it yourself.
+
 ## Dependencies
 
 None (pure Python, no external deps).
@@ -223,7 +257,7 @@ None (pure Python, no external deps).
 1. **Public API is the contract for the entire package ecosystem.** Adding a required method to `IJarvisCommand` is a breaking change that invalidates every community package. Add methods as **optional with defaults** unless the migration story is intentional.
 2. **`__forge_hints__` are load-bearing.** They drive the auto-generated Forge spec that powers AI package generation. When you add a new interface or supporting class, add `__forge_hints__` with `component_type`, `constructor_args`, `tips`, and `examples`. The Forge LLM uses this to write correct code.
 3. **No external dependencies.** Pure Python. Don't add `httpx`, `pydantic`, or anything else without a real reason — every dep gets shipped to every community package in the sandbox.
-4. **`JarvisStorage` is a facade over a backend.** The actual SQLAlchemy + SQLCipher implementation lives on the node side. Community packages get the facade; production swaps in the real backend via `set_backend()` at install time. Don't import the backend directly.
+4. **`JarvisStorage` is a facade over a backend.** The actual SQLAlchemy + SQLCipher implementation lives on the node side. Community packages get the facade; production swaps in the real backend via `set_backend()` at install time. Don't import the backend directly. (`JarvisInbox` follows the same pattern via `set_inbox_backend()`.)
 5. **The community-package logger fallback pattern is canonical.** Every package author copies the `try: from jarvis_log_client; except ImportError: stdlib fallback` block (shown above). Don't try to make `jarvis_log_client` an SDK dependency — it's a node-only library.
 6. **Spec generation is at import time** when the Pantry calls `GET /v1/forge/spec`. If you do expensive work in `__forge_hints__` (e.g. dynamic imports), the spec endpoint slows. Keep hints declarative.
 
@@ -232,3 +266,5 @@ None (pure Python, no external deps).
 The interfaces are the **public contract** with the community package ecosystem. Stability matters more here than anywhere else in the stack. Treat `IJarvisCommand`, `IJarvisAgent`, `IJarvisDeviceProtocol`, `IJarvisDeviceManager`, and `JarvisStorage` as semver-stable.
 
 When adding new functionality, **prefer optional kwargs and default-implemented base methods** over required new methods. Community packages need a graceful upgrade story.
+
+`JarvisInbox` joins that list as of 0.3.3 — same contract weight as `JarvisStorage`.

@@ -36,6 +36,7 @@ from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceCont
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
 from .prompt_provider import IJarvisPromptProvider
 from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
+from .inbox import JarvisInbox, InboxBackend, set_inbox_backend, get_inbox_backend
 from .context import get_current_user_id, set_current_user_id
 from .date_keys import DateKeys, ALL_DATE_KEYS
 from .geocoding import GeocodingHelper, GeocodingResult
@@ -104,6 +105,11 @@ __all__ = [
     "StorageBackend",
     "set_backend",
     "get_backend",
+    # Inbox
+    "JarvisInbox",
+    "InboxBackend",
+    "set_inbox_backend",
+    "get_inbox_backend",
     # Date keys
     "DateKeys",
     "ALL_DATE_KEYS",
@@ -125,4 +131,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
