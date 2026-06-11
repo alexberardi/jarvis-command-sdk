@@ -47,7 +47,7 @@ from jarvis_command_sdk import IJarvisDeviceManager, DeviceManagerDevice
 IJarvisCommand, PreRouteResult, CommandExample, CommandAntipattern
 CommandResponse, RequestInformation, ValidationResult
 IJarvisParameter, JarvisParameter
-IJarvisSecret, JarvisSecret
+IJarvisSecret, JarvisSecret   # value_type="user" renders a household-member picker; stored value = selected member's user id (string)
 AuthenticationConfig, IJarvisButton, JarvisPackage
 
 # Agents

@@ -76,7 +76,7 @@ class JarvisSecret(IJarvisSecret):
         "role": "Declares a secret (API key, URL, config) stored encrypted on the node",
         "constructor": "JarvisSecret(key, description, scope, value_type, required=True, is_sensitive=True, friendly_name=None, enum_values=None, presets=None)",
         "allowed_scopes": ["integration", "user"],
-        "allowed_value_types": ["string", "int", "bool"],
+        "allowed_value_types": ["string", "int", "bool", "user"],
         "example": 'JarvisSecret(key="WEATHER_API_KEY", description="OpenWeather API key", scope="integration", value_type="string")',
         "tips": [
             "scope='integration' means shared across the household (every node sees the same value)",
@@ -86,6 +86,7 @@ class JarvisSecret(IJarvisSecret):
             "Commands sharing an AuthenticationConfig provider share secrets automatically",
             "Use enum_values to constrain a secret to specific allowed values (mobile renders a dropdown)",
             "Use presets to auto-fill related secrets when an enum value is chosen (e.g. provider-specific IMAP settings)",
+            "value_type='user' renders a household-member picker in the mobile app; the stored value is the selected member's user id as a string — declare one when an agent/command needs a user identity to run as or notify (e.g. a background agent posting user-targeted notifications)",
         ],
     }
 
@@ -107,8 +108,8 @@ class JarvisSecret(IJarvisSecret):
             raise ValueError(f"Scope must be integration or user for {key}")
         self._scope = scope
 
-        if value_type != "int" and value_type != "string" and value_type != "bool":
-            raise ValueError(f"Value Type must be int, string or bool for {key}")
+        if value_type not in ("int", "string", "bool", "user"):
+            raise ValueError(f"Value Type must be int, string, bool or user for {key}")
         self._value_type = value_type
         self._required = required
         self._is_sensitive = is_sensitive

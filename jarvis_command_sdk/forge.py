@@ -131,7 +131,11 @@ MANIFEST_SCHEMA: dict[str, Any] = {
             "item_fields": {
                 "key": {"type": "string", "required": True, "description": "Unique key (e.g., 'WEATHER_API_KEY')"},
                 "scope": {"type": "string", "required": True, "valid_values": ["integration", "user"]},
-                "value_type": {"type": "string", "required": True, "valid_values": ["string", "int", "bool"]},
+                "value_type": {
+                    "type": "string", "required": True,
+                    "valid_values": ["string", "int", "bool", "user"],
+                    "description": "'user' renders a household-member picker in the mobile app; the stored value is the selected member's user id as a string (for agents/commands that run as or notify a specific user).",
+                },
                 "description": {"type": "string"},
                 "required": {"type": "bool", "default": True},
                 "is_sensitive": {"type": "bool", "default": True},

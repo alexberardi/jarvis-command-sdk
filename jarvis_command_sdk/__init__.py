@@ -131,4 +131,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"

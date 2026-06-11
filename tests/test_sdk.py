@@ -206,6 +206,17 @@ class TestJarvisSecret:
         with pytest.raises(ValueError, match="Value Type"):
             JarvisSecret("K", "d", "integration", "float")
 
+    def test_user_value_type(self):
+        # value_type="user" = household-member picker; the stored value is the
+        # selected member's user id as a string.
+        s = JarvisSecret("EMAIL_AGENT_USER", "User the agent runs as", "integration", "user")
+        assert s.value_type == "user"
+
+    def test_user_value_type_rejects_enum_values(self):
+        # enum_values stays string-only — "user" gets its picker from the household roster.
+        with pytest.raises(ValueError, match="enum_values requires value_type='string'"):
+            JarvisSecret("K", "d", "integration", "user", enum_values=["a"])
+
     def test_friendly_name(self):
         s = JarvisSecret("K", "d", "integration", "string", friendly_name="My Key")
         assert s.friendly_name == "My Key"
@@ -670,6 +681,33 @@ class TestForgeManifestSchemaAptPackages:
         from jarvis_command_sdk.forge import generate_spec_markdown
         md = generate_spec_markdown()
         assert "apt_packages" in md
+
+
+class TestForgeSecretUserValueType:
+    """value_type='user' renders a household-member picker in the mobile app;
+    the stored value is the selected member's user id as a string. The Forge
+    LLM only learns this if the hints and manifest schema both say so."""
+
+    def test_user_in_forge_hints_allowed_value_types(self):
+        assert "user" in JarvisSecret.__forge_hints__["allowed_value_types"]
+
+    def test_user_in_manifest_schema_valid_values(self):
+        from jarvis_command_sdk.forge import MANIFEST_SCHEMA
+        item_fields = MANIFEST_SCHEMA["fields"]["secrets"]["item_fields"]
+        assert "user" in item_fields["value_type"]["valid_values"]
+
+    def test_generate_spec_surfaces_user_value_type(self):
+        from jarvis_command_sdk.forge import generate_spec
+        spec = generate_spec()
+        item_fields = spec["manifest_schema"]["fields"]["secrets"]["item_fields"]
+        assert "user" in item_fields["value_type"]["valid_values"]
+
+    def test_generate_spec_markdown_mentions_user_value_type(self):
+        from jarvis_command_sdk.forge import generate_spec_markdown
+        md = generate_spec_markdown()
+        # The household-member picker tip must reach the Forge LLM prompt.
+        assert "value_type='user'" in md
+        assert "household-member picker" in md
 
 
 class TestForgeManifestSchemaPostInstall:
