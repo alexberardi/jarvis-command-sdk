@@ -5,6 +5,7 @@ Usage:
 """
 
 from .auth import AuthStatus, MissingSecretsError, TokenBundle
+from .color import Color, NAMED_COLORS, resolve_color
 from .command import (
     IJarvisCommand,
     PreRouteResult,
@@ -61,6 +62,10 @@ __all__ = [
     "AuthStatus",
     "MissingSecretsError",
     "TokenBundle",
+    # Named colors
+    "Color",
+    "NAMED_COLORS",
+    "resolve_color",
     # Parameters
     "IJarvisParameter",
     "JarvisParameter",
@@ -131,4 +136,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"
