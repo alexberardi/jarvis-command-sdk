@@ -47,6 +47,23 @@ class IJarvisParameter(ABC):
         """Optional list of allowed values if this parameter is an enum"""
         return None
 
+    @property
+    def options_source(self) -> Optional[str]:
+        """Optional hint telling UIs to populate this parameter from a live
+        option source instead of (or in addition to) static enum_values.
+
+        Recognized values (extensible):
+          - "devices"            → all controllable devices in the household
+          - "devices:<domain>"   → devices filtered by domain (e.g. "devices:light")
+          - "rooms"              → rooms in the household
+          - "news_categories"    → available news categories
+
+        The routine builder maps this to the matching command-center endpoint to
+        render a pre-populated dropdown. None means there is no dynamic source
+        (use enum_values if present, otherwise a free-text field).
+        """
+        return None
+
     def validate(self, value: Any) -> tuple[bool, Optional[str]]:
         """
         Validate a parameter value
@@ -122,6 +139,7 @@ class IJarvisParameter(ABC):
             "required": self.required,
             "default_value": self.default_value,
             "enum_values": self.enum_values,
+            "options_source": self.options_source,
         }
         if getattr(self, "_refinable", False):
             d["refinable"] = True
@@ -136,7 +154,7 @@ class JarvisParameter(IJarvisParameter):
 
     __forge_hints__ = {
         "role": "Declares a parameter the LLM extracts from voice input",
-        "constructor": "JarvisParameter(name, param_type, required=False, description=None, default=None, enum_values=None, refinable=False)",
+        "constructor": "JarvisParameter(name, param_type, required=False, description=None, default=None, enum_values=None, refinable=False, options_source=None)",
         "constructor_warning": "IMPORTANT: The keyword arguments are 'param_type' (NOT 'parameter_type') and 'default' (NOT 'default_value'). Using wrong names will cause TypeError at runtime.",
         "allowed_types": [
             "string", "int", "float", "bool", "list", "dict",
@@ -151,10 +169,11 @@ class JarvisParameter(IJarvisParameter):
             "Set required=True only if the command cannot work without this parameter",
             "The LLM uses the description to understand what to extract from voice input",
             "refinable=True means the LLM can ask follow-up questions to refine this value",
+            "options_source lets the routine builder pre-populate this param from live data: 'devices', 'devices:<domain>' (e.g. 'devices:light'), 'rooms', or 'news_categories'",
         ],
     }
 
-    def __init__(self, name: str, param_type: str, required: bool = False, description: Optional[str] = None, default: Optional[str] = None, enum_values: Optional[List[str]] = None, refinable: bool = False):
+    def __init__(self, name: str, param_type: str, required: bool = False, description: Optional[str] = None, default: Optional[str] = None, enum_values: Optional[List[str]] = None, refinable: bool = False, options_source: Optional[str] = None):
         # Validate that param_type is allowed
         allowed_types = {
             # Primitive types
@@ -183,6 +202,7 @@ class JarvisParameter(IJarvisParameter):
         self._default = default
         self._enum_values = enum_values
         self._refinable = refinable
+        self._options_source = options_source
 
     @property
     def name(self) -> str:
@@ -207,6 +227,10 @@ class JarvisParameter(IJarvisParameter):
     @property
     def enum_values(self) -> Optional[List[str]]:
         return self._enum_values
+
+    @property
+    def options_source(self) -> Optional[str]:
+        return self._options_source
 
     @property
     def refinable(self) -> bool:

@@ -615,6 +615,8 @@ class IJarvisCommand(ABC):
                 param_schema["description"] = param.description
             if param.enum_values:
                 param_schema["enum"] = param.enum_values
+            if getattr(param, "options_source", None):
+                param_schema["options_source"] = param.options_source
 
             # Handle array types
             if param.param_type.startswith("array") or param.param_type.endswith("[]"):
