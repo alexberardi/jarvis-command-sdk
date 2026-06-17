@@ -9,6 +9,68 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class ReferenceableItem:
+    """One item the user was just shown that they can refer back to by voice.
+
+    A list-surfacing command (or agent) returns these alongside its spoken
+    message via :meth:`CommandResponse.with_items`. They power follow-up flows
+    like "mark those as read", "draft a reply to the one from abc", or "send me
+    the full article for 3":
+
+    - ``ref_id`` is the command-owned **stable handle** for the item (a gmail
+      message_id, an article url-hash, ...). It is what gets passed back to the
+      acting ``@callback`` — never a value the LLM reconstructs from prose.
+    - ``label`` is the short human string the model matches descriptive
+      references against ("email from ABC — 'Invoice #42'").
+    - ``attrs`` are extra matchable facets (sender, subject, source, ...) that
+      also ride along to the callback as part of the selected row.
+    - ``actions`` names the ``@callback`` methods on the owning command/agent
+      that are valid for these items (e.g. ``["mark_read", "draft_reply"]``).
+
+    The node remembers ``ref_id -> owning command`` for the conversation and the
+    command-center re-injects a numbered "recently shown" list into the prompt
+    each turn, so the model resolves "those" / "#3" / "the one from abc" to the
+    right ``ref_id`` and calls the generic ``act_on_items`` tool. Ordinals are
+    derived from list position at render time and never stored, so the spoken
+    list and the remembered list can't drift.
+    """
+
+    __forge_hints__ = {
+        "role": "A just-shown item the user can refer back to by voice in a follow-up",
+        "constructor": 'ReferenceableItem(ref_id, label, attrs={}, actions=[])',
+        "example": (
+            'ReferenceableItem(ref_id=msg.id, label=f"email from {msg.sender} — \'{msg.subject}\'", '
+            'attrs={"sender": msg.sender, "subject": msg.subject}, actions=["mark_read", "draft_reply"])'
+        ),
+        "tips": [
+            "ref_id must be a STABLE, command-owned handle (gmail message_id, article url-hash) — it is what reaches your @callback",
+            "label is what the model matches 'the one from abc' against — make it short and distinctive",
+            "actions must name @callback methods on the SAME command/agent; act_on_items dispatches action -> get_callbacks()[action]",
+            "Return these via CommandResponse.with_items(message=..., items=[...]) so the spoken message and the remembered list come from one place",
+        ],
+    }
+
+    ref_id: str
+    label: str
+    attrs: Dict[str, Any] = field(default_factory=dict)
+    actions: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.ref_id or not str(self.ref_id).strip():
+            raise ValueError("ReferenceableItem 'ref_id' must be a non-empty string")
+        if not self.label or not str(self.label).strip():
+            raise ValueError(f"ReferenceableItem '{self.ref_id}': 'label' must be a non-empty string")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "ref_id": self.ref_id,
+            "label": self.label,
+            "attrs": dict(self.attrs or {}),
+            "actions": list(self.actions or []),
+        }
+
+
+@dataclass
 class CommandResponse:
     """Normalized response structure for all Jarvis commands.
 
@@ -53,6 +115,12 @@ class CommandResponse:
     # Interactive actions (e.g. Send/Cancel buttons for email preview)
     actions: Optional[list[IJarvisButton]] = None
 
+    # Items the user was just shown that they can act on in a follow-up
+    # ("mark those as read", "send me #3"). Surfaced via with_items(); the node
+    # remembers ref_id->owner and the command-center re-injects them into the
+    # prompt so the LLM can resolve references and call act_on_items().
+    referenceable_items: Optional[list["ReferenceableItem"]] = None
+
     # Chunked response support
     is_chunked_response: bool = False
     chunk_session_id: Optional[str] = None
@@ -80,6 +148,10 @@ class CommandResponse:
         """Serialize actions to plain dicts for the wire format."""
         return [a.to_dict() for a in (self.actions or [])]
 
+    def referenceable_items_as_dicts(self) -> list[Dict[str, Any]]:
+        """Serialize referenceable items to plain dicts for the wire format."""
+        return [i.to_dict() for i in (self.referenceable_items or [])]
+
     @classmethod
     def success_response(
         cls,
@@ -100,6 +172,35 @@ class CommandResponse:
             wait_for_input=wait_for_input,
             metadata=metadata,
             on_response_complete=on_response_complete,
+        )
+
+    @classmethod
+    def with_items(
+        cls,
+        message: str,
+        items: list["ReferenceableItem"],
+        *,
+        context_data: Optional[Dict[str, Any]] = None,
+        wait_for_input: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> CommandResponse:
+        """Surface a list the user can act on in a follow-up.
+
+        ``message`` is spoken now (it becomes ``context_data['message']``) and
+        ``items`` are remembered for the rest of the conversation so the user
+        can say "mark those as read" / "send me #3" / "the one from abc". Both
+        come from this one call, so the spoken list and the remembered list
+        cannot drift. Each item's ``actions`` must name ``@callback`` methods on
+        this command (the generic ``act_on_items`` tool dispatches to them).
+        """
+        ctx: Dict[str, Any] = dict(context_data or {})
+        ctx["message"] = message
+        return cls(
+            context_data=ctx,
+            success=True,
+            wait_for_input=wait_for_input,
+            metadata=metadata,
+            referenceable_items=list(items),
         )
 
     @classmethod

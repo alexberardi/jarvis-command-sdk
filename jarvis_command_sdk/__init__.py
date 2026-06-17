@@ -21,7 +21,7 @@ from .secret import IJarvisSecret, JarvisSecret
 from .authentication import AuthenticationConfig
 from .button import IJarvisButton
 from .package import JarvisPackage
-from .response import CommandResponse
+from .response import CommandResponse, ReferenceableItem
 from .request import RequestInformation
 from .validation import ValidationResult
 from .interactive import (
@@ -80,6 +80,7 @@ __all__ = [
     "JarvisPackage",
     # Response
     "CommandResponse",
+    "ReferenceableItem",
     # Request
     "RequestInformation",
     # Validation
@@ -136,4 +137,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.3.5"
+__version__ = "0.4.0"
