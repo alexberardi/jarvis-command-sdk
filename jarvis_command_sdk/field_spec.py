@@ -32,6 +32,15 @@ class FieldSpec:
         editable: When False the field renders as a read-only display row.
             The record's primary key (`data_key`) is always treated as
             non-editable by the node regardless of this flag.
+        create_only: When True the field is settable while CREATING a new
+            record but read-only when editing an existing one. Use for fields
+            that pin a record's identity/scope at birth and must not change
+            afterwards — e.g. a medication's `scope` (personal vs household),
+            which decides ownership and would re-expose a private record if
+            re-scoped later. `create_only` fields are typically also
+            `editable=False` (so the edit form leaves them read-only); the
+            create form and the node's create op honour them, the update op
+            ignores them.
         required: Whether the field must be present after edit. The mobile
             form enforces presence; the node treats this advisorily and
             relies on the command's own validation for hard rejection.
@@ -54,6 +63,7 @@ class FieldSpec:
     item_type: str | None = None
     fields: list["FieldSpec"] | None = None
     placeholder: str | None = None
+    create_only: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise for the MQTT/REST wire format.
@@ -69,6 +79,8 @@ class FieldSpec:
             d["description"] = self.description
         if not self.editable:
             d["editable"] = False
+        if self.create_only:
+            d["create_only"] = True
         if self.required:
             d["required"] = True
         if self.enum_values is not None:
@@ -98,6 +110,7 @@ class FieldSpec:
             description=d.get("description"),
             editable=d.get("editable", True),
             required=d.get("required", False),
+            create_only=d.get("create_only", False),
             enum_values=list(enum_raw) if enum_raw is not None else None,
             item_type=d.get("item_type"),
             fields=nested,

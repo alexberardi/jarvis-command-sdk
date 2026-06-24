@@ -12,7 +12,10 @@ from jarvis_command_sdk import (
     FieldSpec,
     IJarvisCommand,
     RecordSummary,
+    StorageBackend,
+    set_backend,
 )
+from jarvis_command_sdk import storage as storage_module
 
 
 # ── Test fixtures ──────────────────────────────────────────────────────────
@@ -134,6 +137,27 @@ class TestFieldSpec:
         assert d["item_type"] == "string"
         parsed = FieldSpec.from_dict(d)
         assert parsed.item_type == "string"
+
+    def test_create_only_round_trip(self):
+        spec = FieldSpec(
+            "scope",
+            "enum",
+            enum_values=["personal", "household"],
+            editable=False,
+            create_only=True,
+        )
+        d = spec.to_dict()
+        assert d["create_only"] is True
+        assert d["editable"] is False
+        parsed = FieldSpec.from_dict(d)
+        assert parsed.create_only is True
+        assert parsed.editable is False
+
+    def test_create_only_omitted_when_false(self):
+        spec = FieldSpec("name", "string")
+        assert spec.create_only is False
+        assert "create_only" not in spec.to_dict()
+        assert FieldSpec.from_dict({"name": "n", "type": "string"}).create_only is False
 
     def test_nested_object_fields(self):
         spec = FieldSpec(
@@ -281,3 +305,109 @@ class TestCommandBrowserOverrides:
     def test_opt_out(self):
         cmd = _OptedOutCommand()
         assert cmd.data_browser_mode == "disabled"
+
+
+# ── Create (data_browser_create / data_browser_supports_create) ─────────────
+
+
+class _MemBackend(StorageBackend):
+    """Minimal in-memory backend so the default create path can persist."""
+
+    def __init__(self) -> None:
+        self.data: dict[str, dict[str, dict]] = {}
+
+    def save(self, command_name, data_key, data, expires_at=None):
+        self.data.setdefault(command_name, {})[data_key] = data
+
+    def get(self, command_name, data_key):
+        return self.data.get(command_name, {}).get(data_key)
+
+    def get_all(self, command_name):
+        return list(self.data.get(command_name, {}).values())
+
+    def delete(self, command_name, data_key):
+        return self.data.get(command_name, {}).pop(data_key, None) is not None
+
+    def delete_all(self, command_name):
+        n = len(self.data.get(command_name, {}))
+        self.data[command_name] = {}
+        return n
+
+    def get_secret(self, key, scope, user_id=None):
+        return None
+
+    def set_secret(self, key, value, scope, value_type="string", user_id=None):
+        pass
+
+    def delete_secret(self, key, scope, user_id=None):
+        pass
+
+
+@pytest.fixture
+def backend():
+    b = _MemBackend()
+    set_backend(b)
+    yield b
+    storage_module._backend = None
+
+
+class _CreatableCommand(_MinimalCommand):
+    """Opts into create with a custom, domain-shaped record (no generic save)."""
+
+    @property
+    def data_browser_supports_create(self) -> bool:
+        return True
+
+    def data_browser_create(self, fields, requesting_user_id):
+        return "fixed-key", {
+            "id": "fixed-key",
+            "name": fields.get("name"),
+            "user_id": requesting_user_id,
+        }
+
+
+class TestDataBrowserCreateDefault:
+    def test_supports_create_defaults_false(self):
+        assert _MinimalCommand().data_browser_supports_create is False
+
+    def test_create_fails_closed_without_user(self, backend):
+        with pytest.raises(ValueError):
+            _MinimalCommand().data_browser_create({"name": "x"}, None)
+        # nothing persisted
+        assert backend.data == {}
+
+    def test_create_stamps_owner_and_mints_key(self, backend):
+        cmd = _MinimalCommand()
+        key, record = cmd.data_browser_create({"name": "Widget"}, 42)
+        assert record["user_id"] == 42
+        assert record["id"] == key
+        assert record["name"] == "Widget"
+        # persisted under the command's storage namespace
+        assert backend.get("minimal", key) == record
+
+    def test_create_ignores_client_supplied_identity(self, backend):
+        cmd = _MinimalCommand()
+        key, record = cmd.data_browser_create(
+            {
+                "name": "X",
+                "user_id": 999,
+                "id": "evil",
+                "data_key": "evil",
+                "created_at": "2000-01-01",
+            },
+            7,
+        )
+        assert record["user_id"] == 7  # not the spoofed 999
+        assert record["id"] == key and key != "evil"
+        assert "data_key" not in record
+        assert "created_at" not in record
+
+
+class TestDataBrowserCreateOverride:
+    def test_opt_in_reports_true(self):
+        assert _CreatableCommand().data_browser_supports_create is True
+
+    def test_custom_create_is_used(self):
+        key, record = _CreatableCommand().data_browser_create({"name": "Y"}, 5)
+        assert key == "fixed-key"
+        assert record == {"id": "fixed-key", "name": "Y", "user_id": 5}
