@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Callable, TYPE_CHECKING
 from dataclasses import dataclass
@@ -382,6 +383,60 @@ class IJarvisCommand(ABC):
             self.command_name,
         )
         return RecordSummary(title=title)
+
+    @property
+    def data_browser_supports_create(self) -> bool:
+        """Whether the mobile browser may CREATE new records for this command.
+
+        Default: False — the browser shows list / detail / edit / delete only,
+        and the create op is refused node-side. Override to return True to
+        enable an "add" button.
+
+        Opt-in on purpose: a command whose records carry runtime state that a
+        generic save would bypass (e.g. a scheduler that reads an in-memory
+        cache) must NOT enable create until its `data_browser_create` routes
+        through the path that keeps that state consistent. Commands with domain
+        validation (e.g. medication's dose-time / ownership rules) override
+        `data_browser_create` to go through their own store.
+        """
+        return False
+
+    def data_browser_create(
+        self, fields: Dict[str, Any], requesting_user_id: int | None
+    ) -> tuple[str, Dict[str, Any]]:
+        """Create a new record from mobile-supplied `fields` and persist it.
+
+        Returns ``(data_key, record)`` — the storage key the node echoes back
+        to mobile, and the record as persisted. The command (not the node) owns
+        persistence, key generation, and — critically — OWNERSHIP STAMPING:
+        ``requesting_user_id`` is the authenticated caller (resolved
+        server-side from the JWT, never client-asserted) and is the only
+        trustworthy owner.
+
+        Default implementation: a generic owner-stamped save. It drops any
+        client-supplied ``user_id`` / ``id`` / ``data_key`` / ``created_at``,
+        mints a uuid key, stamps ``user_id = requesting_user_id``, and writes
+        via JarvisStorage under ``data_browser_storage_name``. It FAILS CLOSED
+        when ``requesting_user_id`` is None (raises ValueError) so an
+        unresolved caller can never create an ownerless record.
+
+        Override to apply domain rules, a custom key shape, or scope→owner
+        mapping. Raise ValueError with a human-readable message to reject the
+        create; the node surfaces the message and the caller sees a 400.
+
+        Only invoked when `data_browser_supports_create` is True.
+        """
+        if requesting_user_id is None:
+            raise ValueError("cannot create a record without a known user")
+        from .storage import JarvisStorage
+
+        key = uuid.uuid4().hex
+        reserved = {"user_id", "id", "data_key", "created_at"}
+        record = {k: v for k, v in fields.items() if k not in reserved}
+        record["id"] = key
+        record["user_id"] = requesting_user_id
+        JarvisStorage(self.data_browser_storage_name).save(key, record)
+        return key, record
 
     def validate_call(self, **kwargs: Any) -> list[ValidationResult]:
         """Validate parameter values before execution.
