@@ -140,6 +140,14 @@ class IJarvisDeviceProtocol(ABC):
     def store_auth_values(self, values: dict[str, str]) -> None:
         """Store auth tokens/values received from OAuth flow."""
 
+    async def on_removed(self, device: Any, **kwargs: Any) -> None:
+        """Called when a device of this protocol is removed from Jarvis.
+
+        Override to release resources (e.g. unpair a HomeKit accessory so it
+        becomes pairable again, or revoke a token). The node invokes this before
+        the device record is deleted. Default: no-op (optional hook).
+        """
+
     @abstractmethod
     async def discover(self, timeout: float = 5.0) -> list[DiscoveredDevice]:
         """Scan for devices using this protocol."""
