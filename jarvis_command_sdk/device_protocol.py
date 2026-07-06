@@ -148,6 +148,20 @@ class IJarvisDeviceProtocol(ABC):
         the device record is deleted. Default: no-op (optional hook).
         """
 
+    async def get_stream_source(self, device: DiscoveredDevice) -> str | None:
+        """Return a go2rtc source URL for live-streaming this camera device.
+
+        The node hands the returned string to command-center, which registers it
+        with go2rtc verbatim — so the protocol, not command-center, owns the
+        source format and the choice of streaming transport. Examples:
+        ``"nest:?client_id=...&device_id=..."`` (WebRTC — omit the ``protocols``
+        param) or the same with ``&protocols=RTSP`` for an RTSP-only device.
+
+        Return None if this protocol has no camera-stream support or the device
+        isn't configured. Default: None (optional hook).
+        """
+        return None
+
     @abstractmethod
     async def discover(self, timeout: float = 5.0) -> list[DiscoveredDevice]:
         """Scan for devices using this protocol."""
