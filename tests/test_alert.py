@@ -96,6 +96,58 @@ class TestAlertIsExpired:
         assert alert.is_expired is False
 
 
+class TestAlertProactivityFields:
+    """Additive fields for the attention broker (dedupe, routing, targeting).
+
+    All three must default so every existing package constructor keeps
+    working — the SDK public API is semver-stable.
+    """
+
+    def test_defaults_keep_legacy_constructors_valid(self) -> None:
+        alert = Alert(**CORE_FIELDS)
+        assert alert.dedupe_key is None
+        assert alert.category == "general"
+        assert alert.target_user_id is None
+
+    def test_explicit_values_are_preserved(self) -> None:
+        alert = Alert(
+            **CORE_FIELDS,
+            dedupe_key="storm:2026-07-18",
+            category="weather",
+            target_user_id="user-123",
+        )
+        assert alert.dedupe_key == "storm:2026-07-18"
+        assert alert.category == "weather"
+        assert alert.target_user_id == "user-123"
+
+    def test_dedupe_key_is_stable_across_re_emits(self) -> None:
+        # The bug this field exists to fix: id regenerates every run, so a
+        # re-emitted alert re-alerts. Same dedupe_key must survive re-emit
+        # even though the uuid ids differ.
+        a = Alert(**CORE_FIELDS, dedupe_key="storm:2026-07-18")
+        b = Alert(**CORE_FIELDS, dedupe_key="storm:2026-07-18")
+        assert a.id != b.id
+        assert a.dedupe_key == b.dedupe_key
+
+    def test_to_dict_carries_the_new_fields(self) -> None:
+        d = Alert(
+            **CORE_FIELDS,
+            dedupe_key="k",
+            category="weather",
+            target_user_id="u1",
+        ).to_dict()
+        assert d["dedupe_key"] == "k"
+        assert d["category"] == "weather"
+        assert d["target_user_id"] == "u1"
+
+    def test_to_dict_defaults_are_json_serializable(self) -> None:
+        payload = json.dumps(Alert(**CORE_FIELDS).to_dict())
+        parsed = json.loads(payload)
+        assert parsed["dedupe_key"] is None
+        assert parsed["category"] == "general"
+        assert parsed["target_user_id"] is None
+
+
 class TestAlertToDict:
     def test_contains_all_public_fields(self) -> None:
         d = Alert(**CORE_FIELDS).to_dict()
@@ -107,6 +159,9 @@ class TestAlertToDict:
             "priority",
             "created_at",
             "expires_at",
+            "dedupe_key",
+            "category",
+            "target_user_id",
         }
 
     def test_timestamps_serialize_as_iso_strings(self) -> None:
