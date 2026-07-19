@@ -267,6 +267,42 @@ class IJarvisCommand(ABC):
         return None
 
     @property
+    def context_operations(self) -> List["ContextOperation"]:
+        """Typed context queries this command can answer at PLAN time.
+
+        Server-side planners (command-center) invoke these over the node's
+        generic context handler before acting — e.g. the phone-call plan
+        step asks the calendar command for ``availability`` so the user's
+        confirm card carries a real constraint envelope.
+
+        Contract:
+        - Read-only. An op must never mutate command state.
+        - Plan-time only. Context ops are never exposed as live tools inside
+          a phone call or any other untrusted-counterparty loop.
+        - Credentials stay here on the node; only the answer travels.
+
+        Returns:
+            Declared operations, or [] (default) for commands with none.
+        """
+        return []
+
+    def execute_context_operation(
+        self, operation: str, params: Dict[str, Any]
+    ) -> "ContextResult":
+        """Answer one declared context operation.
+
+        Only called for ops present in ``context_operations``; the node
+        runtime validates required params first. Raising is safe — the node
+        converts it into an error result — but returning
+        ``ContextResult.failed(...)`` gives the planner a better message.
+        """
+        from .context_provider import ContextResult
+
+        return ContextResult.failed(
+            f"{self.command_name} does not implement '{operation}'"
+        )
+
+    @property
     def setup_guide(self) -> str | None:
         """Markdown guide for setting up this command's secrets/integrations.
 
