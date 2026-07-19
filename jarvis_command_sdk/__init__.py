@@ -16,6 +16,7 @@ from .command import (
 )
 from .field_spec import FieldSpec
 from .record_summary import DataBrowserMode, RecordSummary
+from .context_provider import ContextOperation, ContextResult
 from .parameter import IJarvisParameter, JarvisParameter
 from .secret import IJarvisSecret, JarvisSecret
 from .authentication import AuthenticationConfig
@@ -57,6 +58,8 @@ __all__ = [
     # Command-data browser
     "FieldSpec",
     "RecordSummary",
+    "ContextOperation",
+    "ContextResult",
     "DataBrowserMode",
     # Auth primitives
     "AuthStatus",
