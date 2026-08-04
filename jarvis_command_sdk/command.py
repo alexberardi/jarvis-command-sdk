@@ -231,6 +231,20 @@ class IJarvisCommand(ABC):
         return False
 
     @property
+    def is_risky(self) -> bool:
+        """Whether this command is high-stakes for autonomous (errand) execution.
+
+        Errand pause-and-replan reads this to decide whether a mid-run plan
+        change that introduces this command "widens the envelope" and must
+        pause for a one-tap human confirm (vs auto-continuing). Set True for
+        commands that spend money, contact a stranger, or take an
+        irreversible / hard-to-undo action (e.g. sending a message, making a
+        purchase). Default False: read-only / low-stakes building blocks
+        (weather, news, timers, lists) auto-continue without a re-confirm.
+        """
+        return False
+
+    @property
     def critical_rules(self) -> List[str]:
         """Optional list of critical rules that must be followed for this command"""
         return []
@@ -736,6 +750,7 @@ class IJarvisCommand(ABC):
                 },
             },
             "allow_direct_answer": self.allow_direct_answer,
+            "is_risky": self.is_risky,
             "keywords": self.keywords,
             "examples": [
                 {
@@ -764,6 +779,7 @@ class IJarvisCommand(ABC):
             "command_name": self.command_name,
             "description": self.description,
             "allow_direct_answer": self.allow_direct_answer,
+            "is_risky": self.is_risky,
             "examples": [
                 {
                     "voice_command": ex.voice_command,
