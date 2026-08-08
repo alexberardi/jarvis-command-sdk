@@ -22,6 +22,7 @@ from .auth import AuthStatus, MissingSecretsError, TokenBundle
 from .authentication import AuthenticationConfig
 from .field_spec import FieldSpec
 from .parameter import IJarvisParameter
+from .proposable import ProposableAction
 from .record_summary import DataBrowserMode, RecordSummary
 from .secret import IJarvisSecret
 from .request import RequestInformation
@@ -315,6 +316,48 @@ class IJarvisCommand(ABC):
         return ContextResult.failed(
             f"{self.command_name} does not implement '{operation}'"
         )
+
+    @property
+    def proposable_actions(self) -> List[ProposableAction]:
+        """Callbacks on THIS command that ANY agent — first- or third-party —
+        may surface as a tap-to-confirm card (the generic "agent proposes a
+        command" contract).
+
+        Default ``[]`` means nothing is proposable. This declaration IS the
+        capability grant: a callback absent from this list can never be fired
+        cross-command by an agent proposal — the command-center dispatcher
+        refuses it. Each entry names a ``@callback`` on this command plus its
+        typed params, card presentation, blast tier, and idempotency handle
+        (see :class:`ProposableAction`). Declaring an action here does NOT
+        change same-command / voice-turn behaviour; it only opts the callback
+        in to being proposed by other agents.
+        """
+        return []
+
+    def get_proposable_actions(self) -> Dict[str, ProposableAction]:
+        """Return ``{callback_name: ProposableAction}`` for declared actions,
+        validating each names a real ``@callback`` on this command.
+
+        Fail-closed at discovery: a proposable action whose ``callback`` is not
+        a decorated method raises ``ValueError`` here (at load/advertisement
+        time) rather than surfacing as a card that silently no-ops on tap.
+        Also rejects two declarations for the same callback name.
+        """
+        registered = set(self.get_callbacks().keys())
+        result: Dict[str, ProposableAction] = {}
+        for action in self.proposable_actions:
+            if action.callback not in registered:
+                raise ValueError(
+                    f"Command '{self.command_name}' declares proposable action "
+                    f"'{action.callback}' but has no @callback with that name"
+                )
+            if action.callback in result:
+                raise ValueError(
+                    f"Command '{self.command_name}' declares the proposable "
+                    f"action '{action.callback}' more than once"
+                )
+            result[action.callback] = action
+        return result
 
     @property
     def setup_guide(self) -> str | None:
@@ -801,6 +844,13 @@ class IJarvisCommand(ABC):
             ]
         if self.critical_rules:
             schema["critical_rules"] = self.critical_rules
+
+        # Advertise proposable actions so command-center's capability registry
+        # (which never imports the SDK) can look up "which node offers command
+        # X action Y" and validate a proposal against the declared params.
+        proposable = self.proposable_actions
+        if proposable:
+            schema["proposable_actions"] = [a.to_dict() for a in proposable]
 
         return schema
 

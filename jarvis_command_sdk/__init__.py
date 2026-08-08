@@ -15,6 +15,7 @@ from .command import (
     callback,
 )
 from .field_spec import FieldSpec
+from .proposable import ProposableAction, BlastTier
 from .record_summary import DataBrowserMode, RecordSummary
 from .context_provider import ContextOperation, ContextResult
 from .parameter import IJarvisParameter, JarvisParameter
@@ -57,6 +58,9 @@ __all__ = [
     "callback",
     # Command-data browser
     "FieldSpec",
+    # Proposable actions (agent proposes command → confirm card)
+    "ProposableAction",
+    "BlastTier",
     "RecordSummary",
     "ContextOperation",
     "ContextResult",
