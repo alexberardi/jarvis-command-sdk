@@ -156,6 +156,8 @@ class JarvisInbox:
         dismiss_label: str = "Dismiss",
         editable: list[str] | None = None,
         blast_tier: str = "reversible",
+        source: str | None = None,
+        descriptor: str | None = None,
         user_id: int | None = None,
         target_type: str = "user",
         create_push_notification: bool = True,
@@ -221,6 +223,32 @@ class JarvisInbox:
                 "navigation_type": "new_notification",
             },
         ]
+
+        # "Never suggest this" — opts the user out of future look-alikes. Routes
+        # to the suppress handler, which records a blocklist entry from the
+        # deterministic ``source`` (a hard key, e.g. the sender) AND the
+        # ``descriptor`` (a semantic example injected into the detector's prompt).
+        # Only offered when the proposer supplies something to key the block on.
+        if source or descriptor:
+            elements.append(
+                {
+                    "id": f"suppress-{idempotency_key}",
+                    "label": "Never suggest this",
+                    "kind": "suppress",
+                    "command": "jarvis.proposable_action",
+                    "callback": "suppress",
+                    "target": "server",
+                    "data": {
+                        "_action": {
+                            "target_command": target_command,
+                            "idempotency_key": idempotency_key,
+                        },
+                        "source": source or "",
+                        "descriptor": descriptor or "",
+                    },
+                    "navigation_type": "new_notification",
+                }
+            )
 
         metadata: dict[str, Any] = {}
         if editable:

@@ -254,3 +254,33 @@ class TestProposeAction:
         # Dismiss is inert (no param data, just the key).
         assert dismiss["command"] == "jarvis.proposable_action"
         assert dismiss["data"]["_action"]["idempotency_key"] == "appt:msg-1"
+
+
+class TestNeverSuggestButton:
+    def test_no_suppress_button_without_source_or_descriptor(self):
+        backend = FakeInboxBackend()
+        inbox_module._backend = backend
+        JarvisInbox("appointment_scan").propose_action(
+            target_command="add_event", action="create_event",
+            params={"title": "x", "idempotency_key": "k1"}, idempotency_key="k1",
+        )
+        els = backend.calls[0]["metadata"]["interactive_elements"]
+        assert not any(e["callback"] == "suppress" for e in els)
+
+    def test_suppress_button_carries_source_and_descriptor(self):
+        backend = FakeInboxBackend()
+        inbox_module._backend = backend
+        JarvisInbox("appointment_scan").propose_action(
+            target_command="add_event", action="create_event",
+            params={"title": "PR failed", "idempotency_key": "appt:99"}, idempotency_key="appt:99",
+            source="notifications@github.com",
+            descriptor="CI/build-failure notification from GitHub",
+        )
+        els = backend.calls[0]["metadata"]["interactive_elements"]
+        suppress = next(e for e in els if e["callback"] == "suppress")
+        assert suppress["command"] == "jarvis.proposable_action"
+        assert suppress["target"] == "server"
+        assert suppress["data"]["source"] == "notifications@github.com"
+        assert suppress["data"]["descriptor"] == "CI/build-failure notification from GitHub"
+        # Carries which command the suppression is about (for the blocklist row).
+        assert suppress["data"]["_action"]["target_command"] == "add_event"
