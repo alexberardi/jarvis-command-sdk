@@ -284,3 +284,21 @@ class TestNeverSuggestButton:
         assert suppress["data"]["descriptor"] == "CI/build-failure notification from GitHub"
         # Carries which command the suppression is about (for the blocklist row).
         assert suppress["data"]["_action"]["target_command"] == "add_event"
+
+
+class TestEditableFieldTypes:
+    def test_field_types_emit_input_type(self):
+        backend = FakeInboxBackend()
+        inbox_module._backend = backend
+        JarvisInbox("appointment_scan").propose_action(
+            target_command="add_event", action="create_event",
+            params={"title": "Dentist", "start": "2026-08-10T09:00:00", "idempotency_key": "k1"},
+            idempotency_key="k1",
+            editable=["title", "start"],
+            field_types={"start": "datetime"},
+        )
+        fields = {f["data_key"]: f for f in backend.calls[0]["metadata"]["editable_fields"]}
+        # datetime field carries input_type so mobile renders a picker...
+        assert fields["start"]["input_type"] == "datetime"
+        # ...while an untyped field stays a plain text box (no input_type key).
+        assert "input_type" not in fields["title"]

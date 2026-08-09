@@ -155,6 +155,7 @@ class JarvisInbox:
         confirm_label: str = "Confirm",
         dismiss_label: str = "Dismiss",
         editable: list[str] | None = None,
+        field_types: dict[str, str] | None = None,
         blast_tier: str = "reversible",
         source: str | None = None,
         descriptor: str | None = None,
@@ -254,11 +255,23 @@ class JarvisInbox:
         if editable:
             # Forward-compatible editable-field hints (additive; older renderers
             # ignore them and the card still confirms with the parsed values).
-            metadata["editable_fields"] = [
-                {"data_key": k, "label": k, "initial": str_params.get(k, "")}
-                for k in editable
-                if k in str_params
-            ]
+            # ``input_type`` (from field_types) lets mobile pick a widget — e.g.
+            # "datetime" → a date/time picker — falling back to a text box when
+            # absent or unrecognised.
+            ftypes = field_types or {}
+            fields: list[dict[str, Any]] = []
+            for k in editable:
+                if k not in str_params:
+                    continue
+                field: dict[str, Any] = {
+                    "data_key": k,
+                    "label": k,
+                    "initial": str_params.get(k, ""),
+                }
+                if ftypes.get(k):
+                    field["input_type"] = ftypes[k]
+                fields.append(field)
+            metadata["editable_fields"] = fields
 
         return self.post(
             title=title or "",
