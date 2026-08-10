@@ -140,3 +140,161 @@ class JarvisInbox:
             create_push_notification=create_push_notification,
             target_type=target_type,
         )
+
+    def propose_action(
+        self,
+        *,
+        target_command: str,
+        action: str,
+        params: dict[str, Any],
+        idempotency_key: str,
+        node_id: str | None = None,
+        title: str | None = None,
+        summary: str = "",
+        body: str = "",
+        confirm_label: str = "Confirm",
+        dismiss_label: str = "Dismiss",
+        editable: list[str] | None = None,
+        field_types: dict[str, str] | None = None,
+        blast_tier: str = "reversible",
+        source: str | None = None,
+        descriptor: str | None = None,
+        user_id: int | None = None,
+        target_type: str = "user",
+        create_push_notification: bool = True,
+    ) -> str:
+        """Propose that ``target_command.action`` be run — a tap-to-confirm card.
+
+        This is the generic "any agent proposes any command" entry point. The
+        agent names a *target* command + a proposable ``action`` (its
+        ``@callback`` name) + the ``params`` to run it with; on Confirm the card
+        routes to command-center's single generic server-plane dispatcher
+        (``jarvis.proposable_action.execute``), which validates the proposal
+        against the target command's declared :class:`ProposableAction` (opt-in +
+        typed params + blast tier + idempotency) and then runs the ``@callback``
+        on the node. The proposing agent need not own the target command.
+
+        ``idempotency_key`` is required: a stable handle (e.g.
+        ``f"appt:{message_id}"``) so a re-scan / double-tap / retry never
+        double-writes. It rides into the target command's params under the
+        action's ``idempotency_param``.
+
+        Returns the same discriminated tags as :meth:`post` plus ``"invalid"``
+        when required arguments are missing. Never raises. NOTE: this is a card
+        builder — the authoritative opt-in and param validation happen
+        server-side at the dispatcher, so a card for a non-proposable action is
+        posted but refused (with a visible failure) on tap.
+        """
+        if not target_command or not action or not idempotency_key:
+            return "invalid"
+        if not isinstance(params, dict):
+            return "invalid"
+
+        editable = editable or []
+        str_params = {k: _wire_value(v) for k, v in params.items()}
+        action_meta = {
+            "target_command": target_command,
+            "target_callback": action,
+            "node_id": node_id,
+            "idempotency_key": idempotency_key,
+            "blast_tier": blast_tier,
+        }
+        elements = [
+            {
+                "id": f"confirm-{idempotency_key}",
+                "label": confirm_label,
+                "kind": "confirm",
+                "command": "jarvis.proposable_action",
+                "callback": "execute",
+                "target": "server",
+                # `_action` is control metadata the mobile field-merge never
+                # touches (it only overwrites keys named by an editable field);
+                # the declared params ride at the top level so user edits merge.
+                "data": {"_action": action_meta, **str_params},
+                "navigation_type": "new_notification",
+            },
+            {
+                "id": f"dismiss-{idempotency_key}",
+                "label": dismiss_label,
+                "kind": "dismiss",
+                "command": "jarvis.proposable_action",
+                "callback": "dismiss",
+                "target": "server",
+                "data": {"_action": {"idempotency_key": idempotency_key}},
+                "navigation_type": "new_notification",
+            },
+        ]
+
+        # "Never suggest this" — opts the user out of future look-alikes. Routes
+        # to the suppress handler, which records a blocklist entry from the
+        # deterministic ``source`` (a hard key, e.g. the sender) AND the
+        # ``descriptor`` (a semantic example injected into the detector's prompt).
+        # Only offered when the proposer supplies something to key the block on.
+        if source or descriptor:
+            elements.append(
+                {
+                    "id": f"suppress-{idempotency_key}",
+                    "label": "Never suggest this",
+                    "kind": "suppress",
+                    "command": "jarvis.proposable_action",
+                    "callback": "suppress",
+                    "target": "server",
+                    "data": {
+                        "_action": {
+                            "target_command": target_command,
+                            "idempotency_key": idempotency_key,
+                        },
+                        "source": source or "",
+                        "descriptor": descriptor or "",
+                    },
+                    "navigation_type": "new_notification",
+                }
+            )
+
+        metadata: dict[str, Any] = {}
+        if editable:
+            # Forward-compatible editable-field hints (additive; older renderers
+            # ignore them and the card still confirms with the parsed values).
+            # ``input_type`` (from field_types) lets mobile pick a widget — e.g.
+            # "datetime" → a date/time picker — falling back to a text box when
+            # absent or unrecognised.
+            ftypes = field_types or {}
+            fields: list[dict[str, Any]] = []
+            for k in editable:
+                if k not in str_params:
+                    continue
+                field: dict[str, Any] = {
+                    "data_key": k,
+                    "label": k,
+                    "initial": str_params.get(k, ""),
+                }
+                if ftypes.get(k):
+                    field["input_type"] = ftypes[k]
+                fields.append(field)
+            metadata["editable_fields"] = fields
+
+        return self.post(
+            title=title or "",
+            summary=summary,
+            body=body,
+            category="proposable_action",
+            metadata=metadata or None,
+            interactive_elements=elements,
+            user_id=user_id,
+            create_push_notification=create_push_notification,
+            target_type=target_type,
+        )
+
+
+def _wire_value(value: Any) -> Any:
+    """Coerce a param value to a JSON/wire-friendly form for the card data.
+
+    datetimes/dates → ISO 8601 strings; primitives pass through; everything
+    else is stringified. Keeps the confirm card's ``data`` serialisable.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    isoformat = getattr(value, "isoformat", None)
+    if callable(isoformat):
+        return isoformat()
+    return str(value)
