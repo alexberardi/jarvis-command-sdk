@@ -334,6 +334,21 @@ class IJarvisCommand(ABC):
         """
         return []
 
+    @property
+    def listening_signal_types(self) -> List[str]:
+        """Signal ``kind``s this command is specifically DESIGNED to react to.
+
+        Purely advisory context for command-center's situation matcher: when a
+        Signal of one of these kinds is present, the matcher highlights this
+        command as purpose-built for it, versus the general pool of commands that
+        *may* still be used. Default ``[]`` = not signal-specific. Declaring a
+        kind here does NOT gate anything and does not change voice-turn
+        behaviour — it only sharpens proactive-proposal precision. Symmetric with
+        :meth:`proposable_actions` (what the command *proposes*): this is what it
+        *listens for*.
+        """
+        return []
+
     def get_proposable_actions(self) -> Dict[str, ProposableAction]:
         """Return ``{callback_name: ProposableAction}`` for declared actions,
         validating each names a real ``@callback`` on this command.
@@ -851,6 +866,13 @@ class IJarvisCommand(ABC):
         proposable = self.proposable_actions
         if proposable:
             schema["proposable_actions"] = [a.to_dict() for a in proposable]
+
+        # Advertise which Signal kinds this command is designed to react to, so
+        # command-center's situation matcher can group "designed for this signal"
+        # vs the general command pool. Rides the same advertisement path.
+        listening = self.listening_signal_types
+        if listening:
+            schema["listening_signal_types"] = list(listening)
 
         return schema
 
