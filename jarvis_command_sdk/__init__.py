@@ -46,7 +46,13 @@ from .signals import (
     set_signals_backend,
     get_signals_backend,
 )
-from .context import get_current_user_id, set_current_user_id
+from .context import (
+    get_current_user_id,
+    get_home_context,
+    home_location,
+    set_current_user_id,
+    set_home_context,
+)
 from .date_keys import DateKeys, ALL_DATE_KEYS
 from .geocoding import GeocodingHelper, GeocodingResult
 from .bluetooth_audio import BluetoothAudio, BluetoothSinkInfo
@@ -150,9 +156,13 @@ __all__ = [
     # User context
     "get_current_user_id",
     "set_current_user_id",
+    # Household home context (location, ... injected by command-center)
+    "get_home_context",
+    "set_home_context",
+    "home_location",
     # Forge spec generation
     "generate_spec",
     "generate_spec_markdown",
 ]
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
