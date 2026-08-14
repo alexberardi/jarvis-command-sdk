@@ -302,3 +302,109 @@ class TestEditableFieldTypes:
         assert fields["start"]["input_type"] == "datetime"
         # ...while an untyped field stays a plain text box (no input_type key).
         assert "input_type" not in fields["title"]
+
+
+# ── Defensive read: method-vs-@property slip must not crash schema-building ────
+#
+# Regression guard for the outage where a command declared proposable_actions as
+# a plain method (missing @property). Accessing it yielded the bound method, and
+# iterating it raised "'method' object is not iterable" at schema-build time,
+# which took down registration of ALL tools for the conversation. The SDK now
+# coerces the callable (and warns) so the command keeps working.
+
+
+class MethodSlipCommand(BaselineCommand):
+    """The exact authoring slip: proposable_actions declared as a plain method
+    (no @property), plus listening_signal_types with the same mistake."""
+
+    @property
+    def command_name(self) -> str:
+        return "method_slip"
+
+    @property
+    def parameters(self):
+        return [JarvisParameter("idempotency_key", "string", required=True)]
+
+    def proposable_actions(self):  # noqa: intentionally NOT a @property
+        return [
+            ProposableAction(
+                callback="do_it",
+                params=self.parameters,
+                idempotency_param="idempotency_key",
+            )
+        ]
+
+    def listening_signal_types(self):  # noqa: same slip on the sibling property
+        return ["appt.upcoming"]
+
+    @callback("do_it")
+    def do_it(self, data: dict, request_info: RequestInformation) -> CommandResponse:
+        return CommandResponse.final_response({"ok": True})
+
+
+class RaisingProposableCommand(BaselineCommand):
+    """proposable_actions itself blows up — must degrade to empty, never crash
+    the whole registration."""
+
+    @property
+    def command_name(self) -> str:
+        return "raiser"
+
+    @property
+    def proposable_actions(self):
+        raise RuntimeError("boom in third-party code")
+
+
+class TestDefensiveDeclaredListRead:
+    def test_method_slip_still_advertises_in_schema(self):
+        # get_command_schema must not raise, and should still surface the action.
+        schema = MethodSlipCommand().get_command_schema()
+        assert schema["proposable_actions"][0]["callback"] == "do_it"
+        assert schema["listening_signal_types"] == ["appt.upcoming"]
+
+    def test_method_slip_get_proposable_actions_coerces(self):
+        actions = MethodSlipCommand().get_proposable_actions()
+        assert set(actions.keys()) == {"do_it"}
+
+    def test_property_that_raises_propagates_for_node_isolation(self):
+        # The SDK deliberately coerces only the specific, recoverable method-slip.
+        # A @property that genuinely raises is NOT swallowed here — it propagates
+        # so the node's per-command fault isolation drops just that command (and
+        # so a real bug isn't silently hidden by the SDK). See the node-side
+        # test_registration_fault_isolation for the containment.
+        with pytest.raises(RuntimeError, match="boom"):
+            RaisingProposableCommand().get_command_schema()
+
+    def test_baseline_unaffected_backward_compatible(self):
+        # A command that never declared the property (the pre-feature world)
+        # still builds a schema with no proposable_actions key.
+        schema = BaselineCommand().get_command_schema()
+        assert "proposable_actions" not in schema
+        assert BaselineCommand().get_proposable_actions() == {}
+
+    def test_bare_string_signal_types_not_shredded(self):
+        # A bare string is iterable — list('presence') would advertise
+        # ['p','r','e',...]. It must be dropped, not silently shredded.
+        class StringSignal(BaselineCommand):
+            @property
+            def command_name(self):
+                return "str_signal"
+
+            @property
+            def listening_signal_types(self):
+                return "presence"  # bug: forgot the list brackets
+
+        assert "listening_signal_types" not in StringSignal().get_command_schema()
+
+    def test_bare_string_proposable_actions_dropped(self):
+        class StringProp(BaselineCommand):
+            @property
+            def command_name(self):
+                return "str_prop"
+
+            @property
+            def proposable_actions(self):
+                return "oops"  # bug: a string, not a list
+
+        assert "proposable_actions" not in StringProp().get_command_schema()
+        assert StringProp().get_proposable_actions() == {}

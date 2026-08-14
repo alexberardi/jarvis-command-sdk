@@ -10,6 +10,7 @@ and auth-status as inputs, not via node-local globals.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 from abc import ABC, abstractmethod
@@ -31,6 +32,62 @@ from .validation import ValidationResult
 
 if TYPE_CHECKING:
     from .package import JarvisPackage
+
+
+logger = logging.getLogger(__name__)
+
+
+def _coerce_declared_list(value: Any, command_name: str, attr: str) -> list:
+    """Defensively resolve a declaration that is contractually a ``@property``
+    returning a list (``proposable_actions``, ``listening_signal_types``).
+
+    A common authoring slip — especially for third parties adopting a property
+    added after their command shipped — is to declare it as a plain ``def``
+    instead of a ``@property``. Accessing the attribute then yields the *bound
+    method*, and iterating it raises a cryptic ``'method' object is not
+    iterable`` at schema-build time. That is exactly the kind of single-command
+    fault that must never cascade into "no tools registered at all".
+
+    So we coerce rather than crash: if the value is callable, call it (a
+    zero-arg bound method returning the list is the intended shape) and warn
+    loudly and specifically so the author adds ``@property``; the command keeps
+    working meanwhile. Anything still non-iterable degrades to ``[]`` with a
+    warning. Commands that never declared the property inherit the base default
+    ``[]`` and pass through untouched — full backward compatibility.
+    """
+    if callable(value):
+        logger.warning(
+            "Command '%s' declared '%s' as a method, not a @property; coercing "
+            "by calling it. Add the @property decorator to fix.",
+            command_name, attr,
+        )
+        try:
+            value = value()
+        except Exception as e:  # a method that raises must not sink registration
+            logger.warning(
+                "Command '%s' '%s' raised when called (%s); treating as empty.",
+                command_name, attr, e,
+            )
+            return []
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)):
+        # A bare string/bytes IS iterable, so list() would silently shred it into
+        # characters — never the intended shape for a list of actions / signal
+        # kinds. Warn and drop rather than advertise per-character garbage.
+        logger.warning(
+            "Command '%s' '%s' is a %s, not a list; treating as empty.",
+            command_name, attr, type(value).__name__,
+        )
+        return []
+    try:
+        return list(value)
+    except Exception:  # any failure to materialize degrades to [] — never cascades
+        logger.warning(
+            "Command '%s' '%s' is not a usable list (%s); treating as empty.",
+            command_name, attr, type(value).__name__,
+        )
+        return []
 
 
 @dataclass
@@ -360,7 +417,10 @@ class IJarvisCommand(ABC):
         """
         registered = set(self.get_callbacks().keys())
         result: Dict[str, ProposableAction] = {}
-        for action in self.proposable_actions:
+        declared = _coerce_declared_list(
+            self.proposable_actions, self.command_name, "proposable_actions"
+        )
+        for action in declared:
             if action.callback not in registered:
                 raise ValueError(
                     f"Command '{self.command_name}' declares proposable action "
@@ -863,16 +923,20 @@ class IJarvisCommand(ABC):
         # Advertise proposable actions so command-center's capability registry
         # (which never imports the SDK) can look up "which node offers command
         # X action Y" and validate a proposal against the declared params.
-        proposable = self.proposable_actions
+        proposable = _coerce_declared_list(
+            self.proposable_actions, self.command_name, "proposable_actions"
+        )
         if proposable:
             schema["proposable_actions"] = [a.to_dict() for a in proposable]
 
         # Advertise which Signal kinds this command is designed to react to, so
         # command-center's situation matcher can group "designed for this signal"
         # vs the general command pool. Rides the same advertisement path.
-        listening = self.listening_signal_types
+        listening = _coerce_declared_list(
+            self.listening_signal_types, self.command_name, "listening_signal_types"
+        )
         if listening:
-            schema["listening_signal_types"] = list(listening)
+            schema["listening_signal_types"] = listening  # already a fresh list
 
         return schema
 
