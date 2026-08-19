@@ -15,6 +15,12 @@ class RequestInformation:
     spoken response into context_data["message"] — there's no LLM downstream
     to turn structured data into a sentence. Commands that don't speak
     (background timers, etc.) can ignore this flag.
+
+    home_context carries household-level info command-center injected (v1:
+    {"location": <locality>}), so a command can read e.g. the household's
+    location without a duplicated secret or an HTTP round-trip. None when CC
+    didn't inject one (unset household / older CC) — the command falls back to
+    its own secret. A plain dict so new keys are additive across SDK versions.
     """
     voice_command: str
     conversation_id: str
@@ -22,3 +28,4 @@ class RequestInformation:
     validation_context: Optional[Dict[str, Any]] = None
     user_id: Optional[int] = None
     is_pre_routed: bool = False
+    home_context: Optional[Dict[str, Any]] = None
