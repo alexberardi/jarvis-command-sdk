@@ -31,6 +31,7 @@ from .interactive import (
 )
 from .package import JarvisPackage
 from .prompt_provider import IJarvisPromptProvider
+from .image import JarvisImage
 from .parameter import JarvisParameter
 from .request import RequestInformation
 from .response import CommandResponse
@@ -50,6 +51,7 @@ INTERFACE_CLASSES: list[type] = [
 SUPPORTING_CLASSES: list[type] = [
     CommandResponse,
     JarvisParameter,
+    JarvisImage,
     JarvisSecret,
     CommandExample,
     FastPathPattern,
@@ -117,7 +119,7 @@ MANIFEST_SCHEMA: dict[str, Any] = {
                 "name": {"type": "string", "required": True},
                 "param_type": {
                     "type": "string", "required": True,
-                    "valid_values": ["string", "int", "float", "bool", "enum", "date", "time", "datetime"],
+                    "valid_values": ["string", "int", "float", "bool", "enum", "date", "time", "datetime", "image"],
                 },
                 "description": {"type": "string"},
                 "required": {"type": "bool", "default": False},

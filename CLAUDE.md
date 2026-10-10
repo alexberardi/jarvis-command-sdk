@@ -23,6 +23,7 @@ pip install -e ../jarvis-command-sdk
 | `JarvisInbox` | `inbox.py` | Inbox item posting facade (push + phone UI) |
 | `DateKeys` | `date_keys.py` | Standardized relative date constants |
 | `GeocodingHelper` | `geocoding.py` | Fuzzy location → coordinates resolver |
+| `JarvisImage` | `image.py` | A user-attached photo passed to an `image` parameter |
 
 ## Usage
 
@@ -47,6 +48,8 @@ from jarvis_command_sdk import IJarvisDeviceManager, DeviceManagerDevice
 IJarvisCommand, PreRouteResult, CommandExample, CommandAntipattern
 CommandResponse, RequestInformation, ValidationResult
 IJarvisParameter, JarvisParameter
+JarvisImage, ImageValidationError, coerce_images   # param_type="image" → run() gets list[JarvisImage]
+MAX_IMAGES, MAX_IMAGE_BYTES, IMAGE_MIME_TYPES, IMAGE_SCHEMA_MARKER
 IJarvisSecret, JarvisSecret   # value_type="user" renders a household-member picker; stored value = selected member's user id (string)
 AuthenticationConfig, IJarvisButton, JarvisPackage
 
@@ -96,6 +99,36 @@ except ImportError:
         def error(self, msg, **kw): self._log.error(msg)
         def debug(self, msg, **kw): self._log.debug(msg)
 ```
+
+## Image parameters
+
+`param_type="image"` (aliases `array<image>`, `array[image]`, `image[]`, all normalized to
+`"image"` by `JarvisParameter`) declares a parameter that receives photos the user attached
+in mobile chat. `run()` gets `list[JarvisImage]` (`image.py`), always a list, attach order.
+See README for the author-facing example.
+
+**Two shapes, one parameter** — keep them straight:
+
+| Where | Shape |
+|---|---|
+| Tool schema the model sees (`to_openai_tool_schema`, reported by the node's `report_tools`) | `{"type": "array", "items": {"type": "integer", "minimum": 1}, "maxItems": 4, "description": "<author text> Photo numbers: ...", "x-jarvis-type": "image"}` — 1-based photo numbers |
+| `get_command_schema()` parameters | `{"type": "image", ...}` (the declared type) |
+| `tool_call` arguments delivered to the node (the server swaps numbers for bytes) | `[{"mime": "image/jpeg", "data": "<standard base64>"}, ...]` — ≤ 4, each ≤ 2 MiB decoded |
+| `run()` kwargs | `list[JarvisImage]` |
+
+- `IMAGE_SCHEMA_MARKER = "x-jarvis-type"` with value `"image"` is how the server finds image
+  properties. Don't rename it without a server change.
+- `IJarvisCommand.execute()` does the coercion (`coerce_images`) after the required-param
+  check and before `validate_call()`. Failures (too many, too big, bad base64, not
+  JPEG/PNG/WebP, or still-unsubstituted integers) return `CommandResponse.validation_error`
+  and `run()` is not called. An empty list for a required image param is an error;
+  absent optional params are not injected. Coercion is idempotent (JarvisImage passes through).
+- Hosts that call `run()` directly skip coercion — call `execute()`.
+- The MIME type is sniffed from magic bytes; the wire `mime` is ignored. Base64 longer than
+  2 MiB's encoding is rejected before decoding.
+- Error messages and `repr(JarvisImage)` never contain image data; keep it that way (node logs
+  them).
+- `to_pil()` is the only Pillow touchpoint and imports it lazily; the SDK stays dependency-free.
 
 ## Forge (Auto-Documentation)
 

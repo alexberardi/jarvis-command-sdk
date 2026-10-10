@@ -19,6 +19,15 @@ from .proposable import ProposableAction, BlastTier
 from .record_summary import DataBrowserMode, RecordSummary
 from .context_provider import ContextOperation, ContextResult
 from .parameter import IJarvisParameter, JarvisParameter
+from .image import (
+    IMAGE_MIME_TYPES,
+    IMAGE_SCHEMA_MARKER,
+    MAX_IMAGE_BYTES,
+    MAX_IMAGES,
+    ImageValidationError,
+    JarvisImage,
+    coerce_images,
+)
 from .secret import IJarvisSecret, JarvisSecret
 from .authentication import AuthenticationConfig
 from .button import IJarvisButton
@@ -88,6 +97,14 @@ __all__ = [
     # Parameters
     "IJarvisParameter",
     "JarvisParameter",
+    # Image parameters (photos attached in mobile chat)
+    "JarvisImage",
+    "ImageValidationError",
+    "coerce_images",
+    "IMAGE_MIME_TYPES",
+    "IMAGE_SCHEMA_MARKER",
+    "MAX_IMAGES",
+    "MAX_IMAGE_BYTES",
     # Secrets
     "IJarvisSecret",
     "JarvisSecret",
@@ -165,4 +182,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"

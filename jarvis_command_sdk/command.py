@@ -22,6 +22,7 @@ from urllib.request import Request, urlopen
 from .auth import AuthStatus, MissingSecretsError, TokenBundle
 from .authentication import AuthenticationConfig
 from .field_spec import FieldSpec
+from .image import ImageValidationError, coerce_images, image_tool_schema, is_image_param_type
 from .parameter import IJarvisParameter
 from .proposable import ProposableAction
 from .record_summary import DataBrowserMode, RecordSummary
@@ -812,6 +813,7 @@ class IJarvisCommand(ABC):
         "array<datetime>": "array", "array<date>": "array",
         "datetime[]": "array", "date[]": "array",
         "enum": "string",
+        "image": "array",
     }
 
     def _validate_examples(self, examples: List["CommandExample"]) -> None:
@@ -831,6 +833,12 @@ class IJarvisCommand(ABC):
         required_params: List[str] = []
 
         for param in self.parameters:
+            if is_image_param_type(param.param_type):
+                properties[param.name] = image_tool_schema(param.description)
+                if param.required:
+                    required_params.append(param.name)
+                continue
+
             json_type = self._TYPE_MAPPING.get(param.param_type, "string")
             param_schema: Dict[str, Any] = {"type": json_type}
 
@@ -996,6 +1004,10 @@ class IJarvisCommand(ABC):
                 f"Missing required params: {', '.join(missing_params)}",
             )
 
+        image_errors = self._coerce_image_params(kwargs)
+        if image_errors:
+            return CommandResponse.validation_error(image_errors)
+
         results = self.validate_call(**kwargs)
         errors = [r for r in results if not r.success]
         if errors:
@@ -1009,6 +1021,36 @@ class IJarvisCommand(ABC):
         return self.run(request_info, **kwargs)
 
     # ── OAuth helpers (concrete) ───────────────────────────────────────
+
+    def _coerce_image_params(self, kwargs: Dict[str, Any]) -> list[ValidationResult]:
+        """Replace each image parameter's wire value with ``list[JarvisImage]`` in place.
+
+        Absent/None values are left alone (required-ness is checked before this).
+        An empty list for a required image parameter is an error. Returns one
+        failed ValidationResult per bad parameter; messages never carry image data.
+        """
+        errors: list[ValidationResult] = []
+        for param in self.parameters:
+            if not is_image_param_type(param.param_type):
+                continue
+            value = kwargs.get(param.name)
+            if value is None:
+                continue
+            try:
+                images = coerce_images(value, param.name)
+            except ImageValidationError as e:
+                errors.append(ValidationResult(
+                    success=False, param_name=param.name, command_name=self.command_name, message=str(e),
+                ))
+                continue
+            if not images and param.required:
+                errors.append(ValidationResult(
+                    success=False, param_name=param.name, command_name=self.command_name,
+                    message=f"Parameter '{param.name}' needs at least one photo",
+                ))
+                continue
+            kwargs[param.name] = images
+        return errors
 
     def needs_auth(
         self,

@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime, date, time, timedelta
 
+from .image import IMAGE_PARAM_TYPES, is_image_param_type
+
 
 class IJarvisParameter(ABC):
     @property
@@ -111,6 +113,10 @@ class IJarvisParameter(ABC):
             'timedelta': timedelta
         }
 
+        # Image parameters are always a list (of JarvisImage once execute() coerced them)
+        if is_image_param_type(self.param_type):
+            return isinstance(value, list)
+
         # Handle array type grammars like array<datetime>, array[datetime], datetime[]
         if isinstance(self.param_type, str):
             param_type = self.param_type.strip()
@@ -161,6 +167,7 @@ class JarvisParameter(IJarvisParameter):
             "datetime", "date", "time", "timedelta",
             "array<string>", "array<int>", "array<float>", "array<bool>",
             "array<datetime>", "array<date>",
+            "image",
         ],
         "example": 'JarvisParameter(name="city", param_type="string", required=True, description="City name for weather lookup")',
         "tips": [
@@ -169,6 +176,7 @@ class JarvisParameter(IJarvisParameter):
             "Set required=True only if the command cannot work without this parameter",
             "The LLM uses the description to understand what to extract from voice input",
             "refinable=True means the LLM can ask follow-up questions to refine this value",
+            "param_type='image' receives photos the user attached in mobile chat: run() gets list[JarvisImage] (always a list, attach order, at most 4, each <= 2 MiB). 'array<image>' is an accepted alias.",
             "options_source lets the routine builder pre-populate this param from live data: 'devices', 'devices:<domain>' (e.g. 'devices:light'), 'rooms', or 'news_categories'",
         ],
     }
@@ -185,7 +193,9 @@ class JarvisParameter(IJarvisParameter):
             'array<string>', 'array<int>', 'array<float>', 'array<bool>',
             'array[datetime]', 'array[date]', 'array[time]', 'array[timedelta]',
             # Shorthand array aliases
-            'datetime[]', 'date[]', 'time[]', 'timedelta[]'
+            'datetime[]', 'date[]', 'time[]', 'timedelta[]',
+            # Images (always a list of JarvisImage; all spellings normalize to 'image')
+            *IMAGE_PARAM_TYPES,
         }
 
         if param_type not in allowed_types:
@@ -194,6 +204,9 @@ class JarvisParameter(IJarvisParameter):
                 f"Only primitive types and datetime types are supported. "
                 f"Allowed types: {', '.join(sorted(allowed_types))}"
             )
+
+        if is_image_param_type(param_type):
+            param_type = "image"
 
         self._name = name
         self._param_type = param_type
