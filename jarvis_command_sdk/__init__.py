@@ -58,6 +58,41 @@ from .signals import (
 from .logger import LoggerBackend, get_logger, set_logger_backend, get_logger_backend
 from .llm import LLMBackend, llm_chat_text, set_llm_backend, get_llm_backend
 from .cc_http import CCHttpBackend, cc_post, set_cc_backend, get_cc_backend
+from .timer import (
+    TimerBackend,
+    set_timer_backend,
+    get_timer_backend,
+    timer_set,
+    timer_cancel,
+    timer_list_active,
+    timer_get,
+    timer_find_by_label,
+    timer_clear_all,
+)
+from .audio_control import (
+    AudioControlBackend,
+    set_audio_control_backend,
+    get_audio_control_backend,
+    audio_set_volume_percent,
+    audio_adjust_volume_percent,
+    audio_set_muted,
+    audio_speak,
+)
+from .alert_queue import (
+    AlertQueueBackend,
+    set_alert_queue_backend,
+    get_alert_queue_backend,
+    alerts_pending,
+    alerts_flush,
+    alerts_remove,
+    alerts_count,
+)
+from .command_invoker import (
+    CommandInvokerBackend,
+    invoke_command,
+    set_command_invoker_backend,
+    get_command_invoker_backend,
+)
 from .context import (
     get_current_user_id,
     get_home_context,
@@ -173,6 +208,34 @@ __all__ = [
     "cc_post",
     "set_cc_backend",
     "get_cc_backend",
+    # Timer / audio control / alert queue / command invoker (injected by the node runtime)
+    "TimerBackend",
+    "set_timer_backend",
+    "get_timer_backend",
+    "timer_set",
+    "timer_cancel",
+    "timer_list_active",
+    "timer_get",
+    "timer_find_by_label",
+    "timer_clear_all",
+    "AudioControlBackend",
+    "set_audio_control_backend",
+    "get_audio_control_backend",
+    "audio_set_volume_percent",
+    "audio_adjust_volume_percent",
+    "audio_set_muted",
+    "audio_speak",
+    "AlertQueueBackend",
+    "set_alert_queue_backend",
+    "get_alert_queue_backend",
+    "alerts_pending",
+    "alerts_flush",
+    "alerts_remove",
+    "alerts_count",
+    "CommandInvokerBackend",
+    "invoke_command",
+    "set_command_invoker_backend",
+    "get_command_invoker_backend",
     # Date keys
     "DateKeys",
     "ALL_DATE_KEYS",
@@ -198,4 +261,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
