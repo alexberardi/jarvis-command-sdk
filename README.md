@@ -113,6 +113,33 @@ the command without photos (or with photo numbers the server could not resolve),
 returns a validation error and `run()` is not called. Bad input (more than 4, over 2 MiB,
 not JPEG/PNG/WebP) is rejected the same way.
 
+## Inbox items with images or video
+
+`JarvisInbox(...).post()` returns a string tag (`"ok"`, or a failure tag), never raises, and can
+carry attachments: bytes or a file path, plus the mime type.
+
+```python
+from jarvis_command_sdk import Attachment, JarvisInbox
+
+tag = JarvisInbox("comfyui").post(
+    title="Your picture is ready",
+    attachments=[
+        Attachment(path="/tmp/out.png", mime="image/png"),          # filename defaults to "out.png"
+        Attachment(data=video_bytes, mime="video/mp4", filename="clip.mp4"),
+    ],
+    create_push_notification=True,
+    target_type="user", user_id=request_info.user_id,
+)
+```
+
+The SDK checks them before the upload, against jarvisd's defaults: `image/png`, `image/jpeg`,
+`image/webp`, `image/gif`, `video/mp4` and `video/webm` (the bytes must match the mime; no SVG),
+at most 25 MiB per file and 50 MiB per item. The failure tags are `"attachment_type"`,
+`"attachment_too_large"` and `"invalid"` (a missing file, or both or neither of `data`/`path`).
+A node that predates attachments returns `"attachments_unsupported"`. jarvisd's caps are
+settings and the server has the last word: if a cap was lowered, the upload fails at the server
+and you get the backend's failure tag (such as `"http_error"`).
+
 ## Logging, LLM and command-center calls
 
 The node runtime injects these backends; without one (tests, Pantry container validation)

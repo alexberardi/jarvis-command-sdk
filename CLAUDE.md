@@ -78,6 +78,8 @@ JarvisStorage, StorageBackend, set_backend, get_backend
 
 # Inbox
 JarvisInbox, InboxBackend, set_inbox_backend, get_inbox_backend
+Attachment, validate_attachments   # images/videos on an inbox item (post(attachments=...))
+ATTACHMENT_MAX_FILE_BYTES, ATTACHMENT_MAX_ITEM_BYTES, ATTACHMENT_MIME_TYPES
 
 # Signals (producer side of the Signal Bus)
 JarvisSignals, SignalsBackend, set_signals_backend, get_signals_backend
@@ -297,6 +299,19 @@ button dicts dispatched to `@callback`s, shape documented in `inbox.py`) is merg
 `metadata["interactive_elements"]`; all other fields pass through verbatim to
 `POST {cc}/api/v0/node/inbox-item`. CC injects `metadata.node_id` server-side — never
 set it yourself.
+
+**Attachments** (`attachments=[Attachment(...)]`, decision:
+`docs/decisions/2026-10-18-inbox-attachments-sdk.md`): each is `Attachment(data=bytes)` or
+`Attachment(path=...)` plus `mime` (and an optional `filename`, which defaults to the path's
+basename). `post()` checks them with `validate_attachments()` against jarvisd's defaults:
+`image/png|jpeg|webp|gif`, `video/mp4|webm`, with magic bytes that match the mime, at most 25 MiB
+per file and 50 MiB per item. The failure tags are `"invalid"` (both or neither of data/path,
+a missing file), `"attachment_type"` and `"attachment_too_large"`. The facade passes
+`attachments=` to the backend **only when the list is non-empty**, so backends written before
+attachments keep working. When such a backend gets attachments, `post()` returns
+`"attachments_unsupported"` (it checks the signature for `attachments` or `**kwargs`). The
+backend contract: upload each file (`POST /api/v0/node/inbox-attachment`, with the raw body and
+`Content-Type: mime`), then send the returned ids as `attachment_ids` on the inbox-item POST.
 
 ## Logger, LLM and command-center HTTP backends
 

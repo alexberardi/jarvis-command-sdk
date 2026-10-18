@@ -48,7 +48,17 @@ from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceCont
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
 from .prompt_provider import IJarvisPromptProvider
 from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
-from .inbox import JarvisInbox, InboxBackend, set_inbox_backend, get_inbox_backend
+from .inbox import (
+    ATTACHMENT_MAX_FILE_BYTES,
+    ATTACHMENT_MAX_ITEM_BYTES,
+    ATTACHMENT_MIME_TYPES,
+    Attachment,
+    InboxBackend,
+    JarvisInbox,
+    get_inbox_backend,
+    set_inbox_backend,
+    validate_attachments,
+)
 from .signals import (
     JarvisSignals,
     SignalsBackend,
@@ -190,6 +200,11 @@ __all__ = [
     "InboxBackend",
     "set_inbox_backend",
     "get_inbox_backend",
+    "Attachment",
+    "validate_attachments",
+    "ATTACHMENT_MAX_FILE_BYTES",
+    "ATTACHMENT_MAX_ITEM_BYTES",
+    "ATTACHMENT_MIME_TYPES",
     # Signals (producer side of the Signal Bus)
     "JarvisSignals",
     "SignalsBackend",
@@ -261,4 +276,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"

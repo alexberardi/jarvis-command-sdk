@@ -26,7 +26,14 @@ Discriminated return tags (strings, never exceptions):
     "no_backend"  — no backend registered (tests, container validation)
     "no_cc_url"   — service discovery returned no command-center URL
     "http_error"  — the POST to command-center failed
-    "invalid"     — the backend rejected the arguments
+    "invalid"     — the backend rejected the arguments, or an attachment is
+                    malformed (both or neither of data/path, missing file)
+    "attachment_type"         — an attachment's mime is not allowed, or its
+                                bytes are not that type
+    "attachment_too_large"    — a file is over ATTACHMENT_MAX_FILE_BYTES, or
+                                all of them over ATTACHMENT_MAX_ITEM_BYTES
+    "attachments_unsupported" — attachments were given but the node's backend
+                                predates them (no ``attachments`` parameter)
 Backends may return additional implementation-specific failure tags
 (e.g. "import_error"); treat any tag other than "ok" as a failure.
 
@@ -49,14 +56,148 @@ element is a dict:
                                          # (fire-and-forget; the default)
     }
 
+Attachments (the ``attachments`` kwarg) are images or videos shown with the
+item: a list of :class:`Attachment`, each either bytes or a file path, plus its
+mime type. The SDK checks them against jarvisd's default caps and types before
+the backend sees them (see docs/decisions/2026-10-18-inbox-attachments-sdk.md);
+jarvisd stays authoritative, since its caps are settings and can be lowered:
+
+    from jarvis_command_sdk import Attachment
+
+    tag = inbox.post(
+        title="Your picture is ready",
+        attachments=[Attachment(path="/tmp/out.png", mime="image/png")],
+    )
+
 The node runtime registers the real backend via set_inbox_backend().
 When no backend is registered (e.g., in tests), post() returns "no_backend".
 """
 
 from __future__ import annotations
 
+import inspect
+import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Any
+
+# jarvisd's defaults (jarvis-server internal/modules/notifications: the
+# inbox.attachment_max_file_bytes / inbox.attachment_max_item_bytes settings and
+# the allowed types). The server is authoritative; these catch the common
+# mistakes before an upload.
+ATTACHMENT_MAX_FILE_BYTES = 25 << 20
+ATTACHMENT_MAX_ITEM_BYTES = 50 << 20
+ATTACHMENT_MIME_TYPES: tuple[str, ...] = (
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+    "video/mp4",
+    "video/webm",
+)
+
+# ISO-BMFF brands that are not MP4 video (HEIF/AVIF stills, QuickTime).
+_NON_MP4_BRANDS = (b"heic", b"heix", b"avif", b"qt  ")
+
+
+@dataclass(frozen=True)
+class Attachment:
+    """A file attached to an inbox item: exactly one of ``data`` or ``path``.
+
+    ``filename`` defaults to the path's basename. ``size`` stats a path rather
+    than reading it. Construction never raises; :func:`validate_attachments`
+    (called by :meth:`JarvisInbox.post`) reports a malformed one as "invalid".
+    """
+
+    data: bytes | None = field(default=None, repr=False)
+    path: str | os.PathLike[str] | None = None
+    mime: str = ""
+    filename: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.filename and self.path is not None:
+            object.__setattr__(self, "filename", os.path.basename(os.fspath(self.path)))
+
+    @property
+    def size(self) -> int:
+        """Size in bytes (``os.stat`` for a path). Raises OSError for a missing path."""
+        if self.data is not None:
+            return len(self.data)
+        return os.stat(self.path).st_size  # type: ignore[arg-type]
+
+    def read_bytes(self) -> bytes:
+        """The content: ``data``, or the file read from ``path``."""
+        if self.data is not None:
+            return self.data
+        with open(self.path, "rb") as f:  # type: ignore[arg-type]
+            return f.read()
+
+    def _head(self, n: int = 16) -> bytes:
+        if self.data is not None:
+            return self.data[:n]
+        with open(self.path, "rb") as f:  # type: ignore[arg-type]
+            return f.read(n)
+
+
+def _sniff_matches(mime: str, head: bytes) -> bool:
+    if mime == "image/png":
+        return head.startswith(b"\x89PNG")
+    if mime == "image/jpeg":
+        return head.startswith(b"\xff\xd8\xff")
+    if mime == "image/gif":
+        return head.startswith(b"GIF8")
+    if mime == "image/webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if mime == "video/mp4":
+        return head[4:8] == b"ftyp" and len(head) >= 12 and head[8:12] not in _NON_MP4_BRANDS
+    if mime == "video/webm":
+        return head.startswith(b"\x1a\x45\xdf\xa3")
+    return False
+
+
+def validate_attachments(attachments: Any) -> str | None:
+    """Check attachments against jarvisd's default caps and types.
+
+    Returns None when they are fine (an empty list or None included), else a
+    failure tag: "invalid", "attachment_type" or "attachment_too_large" (see
+    the module docstring). Never raises.
+    """
+    if not attachments:
+        return None
+    if not isinstance(attachments, (list, tuple)):
+        return "invalid"
+    total = 0
+    for att in attachments:
+        if not isinstance(att, Attachment) or (att.data is None) == (att.path is None):
+            return "invalid"
+        if att.data is not None and not isinstance(att.data, (bytes, bytearray)):
+            return "invalid"
+        try:
+            if att.path is not None and not os.path.isfile(att.path):
+                return "invalid"
+            mime = (att.mime or "").strip().lower()
+            if mime not in ATTACHMENT_MIME_TYPES or not _sniff_matches(mime, att._head()):
+                return "attachment_type"
+            size = att.size
+        except (OSError, TypeError, ValueError):
+            return "invalid"
+        if size > ATTACHMENT_MAX_FILE_BYTES:
+            return "attachment_too_large"
+        total += size
+    if total > ATTACHMENT_MAX_ITEM_BYTES:
+        return "attachment_too_large"
+    return None
+
+
+def _accepts_attachments(backend: InboxBackend) -> bool:
+    """Whether the backend's post_inbox_item takes ``attachments`` (or **kwargs)."""
+    try:
+        params = inspect.signature(backend.post_inbox_item).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        p.name == "attachments" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params
+    )
 
 
 class InboxBackend(ABC):
@@ -75,9 +216,17 @@ class InboxBackend(ABC):
         user_id: int | None = None,
         create_push_notification: bool = False,
         target_type: str = "household",
+        attachments: list[Attachment] | None = None,
     ) -> str: ...
     # Returns a discriminated tag: "ok" | "no_backend" | "no_cc_url" |
     # "http_error" | "invalid" (see module docstring).
+    #
+    # ``attachments`` is passed only when non-empty, already checked by
+    # validate_attachments(). The backend uploads each one
+    # (POST {cc}/api/v0/node/inbox-attachment, raw body, Content-Type: mime)
+    # and sends the returned ids as "attachment_ids" on the inbox-item POST.
+    # A backend without this parameter keeps working for posts without
+    # attachments; posts with them return "attachments_unsupported".
 
 
 # Global backend instance, set by the node runtime at startup
@@ -117,16 +266,27 @@ class JarvisInbox:
         user_id: int | None = None,
         create_push_notification: bool = False,
         target_type: str = "household",
+        attachments: list[Attachment] | None = None,
     ) -> str:
         """Post an inbox item. Returns a discriminated tag (see module docstring).
 
         ``interactive_elements`` is merged into ``metadata["interactive_elements"]``
         (the caller's metadata dict is not mutated; an empty list is treated as
-        None). All other fields pass through to the backend verbatim. Returns
-        "no_backend" when no backend is registered — never raises.
+        None). ``attachments`` are validated (:func:`validate_attachments`) and
+        passed to the backend only when non-empty. All other fields pass
+        through to the backend verbatim. Returns "no_backend" when no backend
+        is registered — never raises.
         """
         if _backend is None:
             return "no_backend"
+        extra: dict[str, Any] = {}
+        if attachments:
+            tag = validate_attachments(attachments)
+            if tag is not None:
+                return tag
+            if not _accepts_attachments(_backend):
+                return "attachments_unsupported"
+            extra["attachments"] = list(attachments)
         if interactive_elements:
             metadata = {**(metadata or {}), "interactive_elements": interactive_elements}
         return _backend.post_inbox_item(
@@ -139,6 +299,7 @@ class JarvisInbox:
             user_id=user_id,
             create_push_notification=create_push_notification,
             target_type=target_type,
+            **extra,
         )
 
     def propose_action(
