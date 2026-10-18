@@ -113,6 +113,19 @@ the command without photos (or with photo numbers the server could not resolve),
 returns a validation error and `run()` is not called. Bad input (more than 4, over 2 MiB,
 not JPEG/PNG/WebP) is rejected the same way.
 
+## Logging, LLM and command-center calls
+
+The node runtime injects these backends; without one (tests, Pantry container validation)
+they fall back and never raise:
+
+```python
+from jarvis_command_sdk import get_logger, llm_chat_text, cc_post
+
+log = get_logger("my_command")          # stdlib logging.getLogger without a backend
+text = llm_chat_text("Tell me a joke.")  # str, or None without a backend / on error
+resp = cc_post("/api/v0/some/endpoint", {"k": "v"})  # dict, or None
+```
+
 ## What's Included
 
 | Module | Classes |
@@ -130,4 +143,7 @@ not JPEG/PNG/WebP) is rejected the same way.
 | `agent` | `IJarvisAgent`, `AgentSchedule`, `Alert` |
 | `device_protocol` | `IJarvisDeviceProtocol`, `DiscoveredDevice`, `DeviceControlResult` |
 | `device_manager` | `IJarvisDeviceManager`, `DeviceManagerDevice` |
+| `logger` | `LoggerBackend`, `get_logger`, `set_logger_backend`, `get_logger_backend` |
+| `llm` | `LLMBackend`, `llm_chat_text`, `set_llm_backend`, `get_llm_backend` |
+| `cc_http` | `CCHttpBackend`, `cc_post`, `set_cc_backend`, `get_cc_backend` |
 | `forge` | `generate_spec()`, `generate_spec_markdown()` |

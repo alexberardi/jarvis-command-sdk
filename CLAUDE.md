@@ -21,6 +21,9 @@ pip install -e ../jarvis-command-sdk
 | `IJarvisDeviceManager` | `device_manager.py` | Device listing backend (HA, Jarvis Direct) |
 | `JarvisStorage` | `storage.py` | Command data persistence + secrets facade |
 | `JarvisInbox` | `inbox.py` | Inbox item posting facade (push + phone UI) |
+| `LoggerBackend` / `get_logger` | `logger.py` | Node-supplied logger; falls back to `logging.getLogger` |
+| `LLMBackend` / `llm_chat_text` | `llm.py` | Ask the node's LLM for a text reply (None without a backend) |
+| `CCHttpBackend` / `cc_post` | `cc_http.py` | POST to command-center as the node (None without a backend) |
 | `DateKeys` | `date_keys.py` | Standardized relative date constants |
 | `GeocodingHelper` | `geocoding.py` | Fuzzy location → coordinates resolver |
 | `JarvisImage` | `image.py` | A user-attached photo passed to an `image` parameter |
@@ -71,6 +74,14 @@ JarvisStorage, StorageBackend, set_backend, get_backend
 
 # Inbox
 JarvisInbox, InboxBackend, set_inbox_backend, get_inbox_backend
+
+# Signals (producer side of the Signal Bus)
+JarvisSignals, SignalsBackend, set_signals_backend, get_signals_backend
+
+# Logger / LLM / command-center HTTP (backends injected by the node runtime)
+LoggerBackend, get_logger, set_logger_backend, get_logger_backend
+LLMBackend, llm_chat_text, set_llm_backend, get_llm_backend
+CCHttpBackend, cc_post, set_cc_backend, get_cc_backend
 
 # Date keys
 DateKeys, ALL_DATE_KEYS
@@ -273,6 +284,27 @@ button dicts dispatched to `@callback`s, shape documented in `inbox.py`) is merg
 `metadata["interactive_elements"]`; all other fields pass through verbatim to
 `POST {cc}/api/v0/node/inbox-item`. CC injects `metadata.node_id` server-side — never
 set it yourself.
+
+## Logger, LLM and command-center HTTP backends
+
+Same injection pattern again (`logger.py`, `llm.py`, `cc_http.py`): an ABC, a module-level
+`_backend`, `set_*_backend(backend | None)` / `get_*_backend()`, and a module function
+packages call. The node runtime registers the backends; the functions never raise.
+
+| Function | Backend method | No backend / backend raises |
+|---|---|---|
+| `get_logger(name)` | `LoggerBackend.get_logger(name)` | `logging.getLogger(name)` (a failure is logged as a warning) |
+| `llm_chat_text(prompt) -> str \| None` | `LLMBackend.chat_text(prompt)` | `None`, logged (debug / warning) |
+| `cc_post(path, json) -> dict \| None` | `CCHttpBackend.post(path, json)` | `None`, logged (debug / warning) |
+
+The backend method names are the contract the node implements; don't rename them.
+
+```python
+from jarvis_command_sdk import get_logger, llm_chat_text
+
+log = get_logger("tell_a_joke")
+joke = llm_chat_text("Tell me a short joke.") or "I'm out of jokes."
+```
 
 ## Dependencies
 
