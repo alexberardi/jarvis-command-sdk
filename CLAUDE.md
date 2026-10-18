@@ -24,6 +24,10 @@ pip install -e ../jarvis-command-sdk
 | `LoggerBackend` / `get_logger` | `logger.py` | Node-supplied logger; falls back to `logging.getLogger` |
 | `LLMBackend` / `llm_chat_text` | `llm.py` | Ask the node's LLM for a text reply (None without a backend) |
 | `CCHttpBackend` / `cc_post` | `cc_http.py` | POST to command-center as the node (None without a backend) |
+| `TimerBackend` / `timer_*` | `timer.py` | Set/cancel/list the node's timers; the host fires and speaks them |
+| `AudioControlBackend` / `audio_*` | `audio_control.py` | Node volume, mute, and speak |
+| `AlertQueueBackend` / `alerts_*` | `alert_queue.py` | Read/flush/remove the node's pending agent `Alert`s |
+| `CommandInvokerBackend` / `invoke_command` | `command_invoker.py` | Run another installed command (host resolves its secrets) |
 | `DateKeys` | `date_keys.py` | Standardized relative date constants |
 | `GeocodingHelper` | `geocoding.py` | Fuzzy location → coordinates resolver |
 | `JarvisImage` | `image.py` | A user-attached photo passed to an `image` parameter |
@@ -82,6 +86,15 @@ JarvisSignals, SignalsBackend, set_signals_backend, get_signals_backend
 LoggerBackend, get_logger, set_logger_backend, get_logger_backend
 LLMBackend, llm_chat_text, set_llm_backend, get_llm_backend
 CCHttpBackend, cc_post, set_cc_backend, get_cc_backend
+
+# Timer / audio control / alert queue / command invoker (backends injected by the node runtime)
+TimerBackend, set_timer_backend, get_timer_backend
+timer_set, timer_cancel, timer_list_active, timer_get, timer_find_by_label, timer_clear_all
+AudioControlBackend, set_audio_control_backend, get_audio_control_backend
+audio_set_volume_percent, audio_adjust_volume_percent, audio_set_muted, audio_speak
+AlertQueueBackend, set_alert_queue_backend, get_alert_queue_backend
+alerts_pending, alerts_flush, alerts_remove, alerts_count
+CommandInvokerBackend, invoke_command, set_command_invoker_backend, get_command_invoker_backend
 
 # Date keys
 DateKeys, ALL_DATE_KEYS
@@ -305,6 +318,35 @@ from jarvis_command_sdk import get_logger, llm_chat_text
 log = get_logger("tell_a_joke")
 joke = llm_chat_text("Tell me a short joke.") or "I'm out of jokes."
 ```
+
+## Timer, audio-control, alert-queue and command-invoker backends
+
+Same pattern (`timer.py`, `audio_control.py`, `alert_queue.py`, `command_invoker.py`).
+Each module has a private `_call(op, default, fn)` that does the no-backend / raising-backend
+fallback; helpers are prefixed (`timer_`, `audio_`, `alerts_`) so they don't collide in the
+package root.
+
+| Function | Backend method | No backend / backend raises |
+|---|---|---|
+| `timer_set(seconds, label=None) -> str \| None` | `TimerBackend.set` | `None` |
+| `timer_cancel(timer_id) -> bool` | `.cancel` | `False` |
+| `timer_list_active() -> list[dict]` | `.list_active` | `[]` |
+| `timer_get(timer_id) -> dict \| None` | `.get` | `None` |
+| `timer_find_by_label(label) -> str \| None` | `.find_by_label` | `None` |
+| `timer_clear_all() -> int` | `.clear_all` | `0` |
+| `audio_set_volume_percent(percent) -> bool` | `AudioControlBackend.set_volume_percent` | `False` |
+| `audio_adjust_volume_percent(delta) -> int \| None` (new level) | `.adjust_volume_percent` | `None` |
+| `audio_set_muted(muted) -> bool` | `.set_muted` | `False` |
+| `audio_speak(text) -> bool` | `.speak` | `False` |
+| `alerts_pending() -> list[Alert]` | `AlertQueueBackend.pending` | `[]` |
+| `alerts_flush() -> list[Alert]` (and removes) | `.flush` | `[]` |
+| `alerts_remove(ids) -> int` | `.remove(list(ids))` | `0` |
+| `alerts_count() -> int` | `.count` | `0` |
+| `invoke_command(name, request_info, /, **args) -> CommandResponse \| None` | `CommandInvokerBackend.invoke` | `None` |
+
+- The host owns timers: it schedules, fires and speaks them. Commands never start threads for a timer.
+- `invoke_command`'s `name` and `request_info` are positional-only, so a command argument
+  called `name` passes through in `**args`. The host resolves the invoked command's secrets.
 
 ## Dependencies
 

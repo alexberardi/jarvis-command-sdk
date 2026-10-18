@@ -126,6 +126,26 @@ text = llm_chat_text("Tell me a joke.")  # str, or None without a backend / on e
 resp = cc_post("/api/v0/some/endpoint", {"k": "v"})  # dict, or None
 ```
 
+## Timers, volume, alerts and calling other commands
+
+Also injected by the node runtime, and also never raising (safe default without a backend):
+
+```python
+from jarvis_command_sdk import (
+    timer_set, timer_find_by_label, timer_cancel,
+    audio_adjust_volume_percent, audio_speak,
+    alerts_flush, invoke_command,
+)
+
+timer_id = timer_set(600, label="pasta")   # id, or None; the node fires and speaks it
+if (tid := timer_find_by_label("pasta")):
+    timer_cancel(tid)                      # True / False
+level = audio_adjust_volume_percent(+10)   # new level 0-100, or None
+audio_speak("Volume up.")                  # True / False
+alerts = alerts_flush()                    # list[Alert], removed from the queue
+resp = invoke_command("get_weather", request_info, city="Boston")  # CommandResponse, or None
+```
+
 ## What's Included
 
 | Module | Classes |
@@ -146,4 +166,8 @@ resp = cc_post("/api/v0/some/endpoint", {"k": "v"})  # dict, or None
 | `logger` | `LoggerBackend`, `get_logger`, `set_logger_backend`, `get_logger_backend` |
 | `llm` | `LLMBackend`, `llm_chat_text`, `set_llm_backend`, `get_llm_backend` |
 | `cc_http` | `CCHttpBackend`, `cc_post`, `set_cc_backend`, `get_cc_backend` |
+| `timer` | `TimerBackend`, `timer_set`, `timer_cancel`, `timer_list_active`, `timer_get`, `timer_find_by_label`, `timer_clear_all`, `set_timer_backend`, `get_timer_backend` |
+| `audio_control` | `AudioControlBackend`, `audio_set_volume_percent`, `audio_adjust_volume_percent`, `audio_set_muted`, `audio_speak`, `set_audio_control_backend`, `get_audio_control_backend` |
+| `alert_queue` | `AlertQueueBackend`, `alerts_pending`, `alerts_flush`, `alerts_remove`, `alerts_count`, `set_alert_queue_backend`, `get_alert_queue_backend` |
+| `command_invoker` | `CommandInvokerBackend`, `invoke_command`, `set_command_invoker_backend`, `get_command_invoker_backend` |
 | `forge` | `generate_spec()`, `generate_spec_markdown()` |
