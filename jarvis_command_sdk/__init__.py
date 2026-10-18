@@ -55,6 +55,9 @@ from .signals import (
     set_signals_backend,
     get_signals_backend,
 )
+from .logger import LoggerBackend, get_logger, set_logger_backend, get_logger_backend
+from .llm import LLMBackend, llm_chat_text, set_llm_backend, get_llm_backend
+from .cc_http import CCHttpBackend, cc_post, set_cc_backend, get_cc_backend
 from .context import (
     get_current_user_id,
     get_home_context,
@@ -157,6 +160,19 @@ __all__ = [
     "SignalsBackend",
     "set_signals_backend",
     "get_signals_backend",
+    # Logger / LLM / command-center HTTP backends (injected by the node runtime)
+    "LoggerBackend",
+    "get_logger",
+    "set_logger_backend",
+    "get_logger_backend",
+    "LLMBackend",
+    "llm_chat_text",
+    "set_llm_backend",
+    "get_llm_backend",
+    "CCHttpBackend",
+    "cc_post",
+    "set_cc_backend",
+    "get_cc_backend",
     # Date keys
     "DateKeys",
     "ALL_DATE_KEYS",
@@ -182,4 +198,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"

@@ -463,4 +463,4 @@ def test_exports():
     for name in ("JarvisImage", "ImageValidationError", "coerce_images", "MAX_IMAGES", "MAX_IMAGE_BYTES",
                  "IMAGE_SCHEMA_MARKER", "IMAGE_MIME_TYPES"):
         assert name in jarvis_command_sdk.__all__
-    assert jarvis_command_sdk.__version__ == "0.10.0"
+    assert jarvis_command_sdk.__version__ == "0.11.0"
