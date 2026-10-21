@@ -6,8 +6,22 @@ Core interfaces for building Jarvis voice assistant packages — commands, agent
 
 ## Installation
 
+The SDK is not published on PyPI; install it from this repository:
+
 ```bash
-pip install jarvis-command-sdk
+pip install git+https://github.com/alexberardi/jarvis-command-sdk.git
+```
+
+To pin a specific commit:
+
+```bash
+pip install git+https://github.com/alexberardi/jarvis-command-sdk.git@<commit-sha>
+```
+
+Contributors (editable install, with dev extras):
+
+```bash
+pip install -e ".[dev]"
 ```
 
 ## Usage
