@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "domains": {
+    "light": {
+      "label": "Light",
+      "icon": "lightbulb-outline",
+      "controllable": true,
+      "control_type": "light",
+      "features": ["brightness", "color", "color_temp"],
+      "ui_hints": {"features": ["brightness", "color", "color_temp"], "min_value": 0, "max_value": 100, "step": 1, "unit": "%"},
+      "state_fields": ["state", "brightness", "rgb", "hue", "saturation", "color_temp"],
+      "actions": [
+        {"text": "Turn On", "action": "turn_on", "type": "primary", "icon": "lightbulb-on"},
+        {"text": "Turn Off", "action": "turn_off", "type": "secondary", "icon": "lightbulb-off"}
+      ]
+    },
+    "switch": {
+      "label": "Switch",
+      "icon": "power-plug-outline",
+      "controllable": true,
+      "control_type": "toggle",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state"],
+      "actions": [
+        {"text": "Turn On", "action": "turn_on", "type": "primary", "icon": "power"},
+        {"text": "Turn Off", "action": "turn_off", "type": "secondary", "icon": "power-off"}
+      ]
+    },
+    "fan": {
+      "label": "Fan",
+      "icon": "fan",
+      "controllable": true,
+      "control_type": "toggle",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state"],
+      "actions": [
+        {"text": "Turn On", "action": "turn_on", "type": "primary", "icon": "fan"},
+        {"text": "Turn Off", "action": "turn_off", "type": "secondary", "icon": "fan-off"}
+      ]
+    },
+    "cover": {
+      "label": "Cover",
+      "icon": "window-shutter",
+      "controllable": true,
+      "control_type": "cover",
+      "features": [],
+      "ui_hints": {"features": [], "min_value": 0, "max_value": 100, "step": 1, "unit": "%"},
+      "state_fields": ["state", "position"],
+      "actions": [
+        {"text": "Open", "action": "open_cover", "type": "primary", "icon": "blinds-open"},
+        {"text": "Close", "action": "close_cover", "type": "secondary", "icon": "blinds"}
+      ]
+    },
+    "lock": {
+      "label": "Lock",
+      "icon": "lock-outline",
+      "controllable": true,
+      "control_type": "lock",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state", "is_locked"],
+      "actions": [
+        {"text": "Lock", "action": "lock", "type": "primary", "icon": "lock"},
+        {"text": "Unlock", "action": "unlock", "type": "destructive", "icon": "lock-open"}
+      ]
+    },
+    "climate": {
+      "label": "Thermostat",
+      "icon": "thermostat",
+      "controllable": true,
+      "control_type": "thermostat",
+      "features": ["heat", "cool", "heat_cool", "auto", "off"],
+      "ui_hints": {"features": ["heat", "cool", "off"], "min_value": 50, "max_value": 90, "step": 1, "unit": "F"},
+      "ui_hints_by_unit": {
+        "F": {"min_value": 50, "max_value": 90, "unit": "F"},
+        "C": {"min_value": 10, "max_value": 32, "unit": "C"}
+      },
+      "state_fields": ["state", "mode", "unit", "online", "current_temperature", "target_temperature", "humidity"],
+      "actions": [
+        {"text": "Set Temperature", "action": "set_temperature", "type": "primary", "icon": "thermometer"},
+        {"text": "Set Mode", "action": "set_mode", "type": "secondary", "icon": "thermostat"},
+        {"text": "Turn Off", "action": "turn_off", "type": "secondary", "icon": "power-off"}
+      ]
+    },
+    "camera": {
+      "label": "Camera",
+      "icon": "cctv",
+      "controllable": true,
+      "control_type": "camera",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state", "online"],
+      "actions": [
+        {"text": "Get Stream", "action": "get_stream", "type": "primary", "icon": "video"}
+      ]
+    },
+    "kettle": {
+      "label": "Kettle",
+      "icon": "kettle",
+      "controllable": true,
+      "control_type": "kettle",
+      "features": ["boil", "keep_warm", "off"],
+      "ui_hints": {"features": ["boil", "keep_warm", "off"], "min_value": 40, "max_value": 100, "step": 1, "unit": "C"},
+      "state_fields": ["state", "online", "current_temperature", "target_temperature", "unit", "mode"],
+      "actions": [
+        {"text": "Boil", "action": "turn_on", "type": "primary", "icon": "kettle"},
+        {"text": "Set Temperature", "action": "set_temperature", "type": "secondary", "icon": "thermometer"},
+        {"text": "Turn Off", "action": "turn_off", "type": "secondary", "icon": "power-off"}
+      ]
+    },
+    "media_player": {
+      "label": "Media player",
+      "icon": "speaker",
+      "controllable": true,
+      "control_type": "media",
+      "features": ["play_media", "play", "pause", "stop", "seek", "volume", "turn_on", "turn_off"],
+      "ui_hints": {"features": []},
+      "state_fields": ["state", "volume", "media_title", "media_artist", "source", "position", "duration"],
+      "actions": [
+        {"text": "Play", "action": "play", "type": "primary", "icon": "play"},
+        {"text": "Pause", "action": "pause", "type": "secondary", "icon": "pause"}
+      ]
+    },
+    "security_system": {
+      "label": "Security system",
+      "icon": "shield-home-outline",
+      "controllable": true,
+      "control_type": "alarm",
+      "features": ["away", "home", "off"],
+      "ui_hints": {"features": ["away", "home", "off"]},
+      "state_fields": ["state"],
+      "actions": []
+    },
+    "vacuum": {
+      "label": "Vacuum",
+      "icon": "robot-vacuum",
+      "controllable": true,
+      "control_type": "toggle",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state"],
+      "actions": [
+        {"text": "Start", "action": "start", "type": "primary", "icon": "play"},
+        {"text": "Stop", "action": "stop", "type": "secondary", "icon": "stop"}
+      ]
+    },
+    "scene": {
+      "label": "Scene",
+      "icon": "palette-outline",
+      "controllable": true,
+      "control_type": "toggle",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state"],
+      "actions": [
+        {"text": "Activate", "action": "turn_on", "type": "primary", "icon": "play"}
+      ]
+    },
+    "script": {
+      "label": "Script",
+      "icon": "script-outline",
+      "controllable": true,
+      "control_type": "toggle",
+      "features": [],
+      "ui_hints": {"features": []},
+      "state_fields": ["state"],
+      "actions": [
+        {"text": "Run", "action": "turn_on", "type": "primary", "icon": "play"}
+      ]
+    },
+    "sensor": {"label": "Sensor", "icon": "gauge", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []},
+    "binary_sensor": {"label": "Sensor", "icon": "radiobox-marked", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []},
+    "weather": {"label": "Weather", "icon": "weather-partly-cloudy", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []},
+    "sun": {"label": "Sun", "icon": "white-balance-sunny", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []},
+    "zone": {"label": "Zone", "icon": "map-marker-radius", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []},
+    "person": {"label": "Person", "icon": "account", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []},
+    "device_tracker": {"label": "Tracker", "icon": "crosshairs-gps", "controllable": false, "control_type": "sensor", "features": [], "ui_hints": {"features": []}, "state_fields": ["state"], "actions": []}
+  },
+  "fallback": {
+    "label": "Device",
+    "icon": "devices",
+    "controllable": true,
+    "control_type": "toggle",
+    "features": [],
+    "ui_hints": {"features": []},
+    "state_fields": ["state"],
+    "actions": [
+      {"text": "Turn On", "action": "turn_on", "type": "primary", "icon": "power"},
+      {"text": "Turn Off", "action": "turn_off", "type": "secondary", "icon": "power-off"}
+    ]
+  }
+}

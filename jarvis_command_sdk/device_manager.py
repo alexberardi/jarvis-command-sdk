@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .authentication import AuthenticationConfig
+from .device_protocol import DeviceControlResult
 from .secret import IJarvisSecret
 
 
@@ -54,6 +55,8 @@ class IJarvisDeviceManager(ABC):
             "friendly_name is shown in the mobile settings UI",
             "can_edit_devices controls whether the mobile app shows edit UI for the device list",
             "collect_devices() should return all devices from this backend in normalized format",
+            "get_state() and control() are optional; implement them so displays and the app can read and drive this backend's devices",
+            "Use the domain names, action names and state fields from device_types.json (device_type(domain)); translate the backend's own vocabulary inside the manager",
         ],
         "example_import": "from jarvis_command_sdk import IJarvisDeviceManager, DeviceManagerDevice, JarvisSecret",
     }
@@ -95,3 +98,21 @@ class IJarvisDeviceManager(ABC):
     async def collect_devices(self) -> list[DeviceManagerDevice]:
         """Collect the full device list from this backend."""
         ...
+
+    async def get_state(self, device: DeviceManagerDevice) -> dict[str, Any] | None:
+        """The device's current state, keyed by device_type(device.domain)["state_fields"].
+
+        Include "available_features" (a subset of the type's "features") when the device
+        supports only some of them. None means this manager can't read state.
+        """
+        return None
+
+    async def control(
+        self,
+        device: DeviceManagerDevice,
+        action: str,
+        data: dict[str, Any] | None = None,
+    ) -> DeviceControlResult:
+        """Run a catalogue action (device_type(device.domain)["actions"] or "features") on the device."""
+        return DeviceControlResult(success=False, entity_id=device.entity_id, action=action,
+                                   error=f"{self.friendly_name} can't control devices")

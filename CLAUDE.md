@@ -18,7 +18,8 @@ pip install -e ../jarvis-command-sdk
 | `IJarvisCommand` | `command.py` | Voice command (the original plugin type) |
 | `IJarvisAgent` | `agent.py` | Background agent (scheduled data collection) |
 | `IJarvisDeviceProtocol` | `device_protocol.py` | LAN/cloud device adapter (LIFX, Kasa, etc.) |
-| `IJarvisDeviceManager` | `device_manager.py` | Device listing backend (HA, Jarvis Direct) |
+| `IJarvisDeviceManager` | `device_manager.py` | Device backend (HA, Jarvis Direct): list, plus optional `get_state`/`control` |
+| `device_types()` / `device_type()` | `device_types.py` | The device-type catalogue (`device_types.json`): per-domain icon, control type, UI hints, actions, state fields |
 | `JarvisStorage` | `storage.py` | Command data persistence + secrets facade |
 | `JarvisInbox` | `inbox.py` | Inbox item posting facade (push + phone UI) |
 | `LoggerBackend` / `get_logger` | `logger.py` | Node-supplied logger; falls back to `logging.getLogger` |
@@ -68,6 +69,9 @@ IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
 
 # Device managers
 IJarvisDeviceManager, DeviceManagerDevice
+
+# Device-type catalogue (device_types.json; jarvisd embeds a copy, keep them identical)
+device_types, device_type
 
 # Interactive list payloads (server-driven phone UI)
 InteractiveList, InteractiveSection, InteractiveRow
