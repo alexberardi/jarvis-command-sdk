@@ -46,6 +46,7 @@ from .interactive import (
 from .agent import IJarvisAgent, AgentSchedule, Alert
 from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult, InputRequest
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
+from .device_types import device_types, device_type
 from .prompt_provider import IJarvisPromptProvider
 from .storage import JarvisStorage, StorageBackend, set_backend, get_backend
 from .inbox import (
@@ -188,6 +189,9 @@ __all__ = [
     # Device manager interface
     "IJarvisDeviceManager",
     "DeviceManagerDevice",
+    # Device-type catalogue (device_types.json)
+    "device_types",
+    "device_type",
     # Prompt provider interface
     "IJarvisPromptProvider",
     # Storage
@@ -276,4 +280,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.13.0"
+__version__ = "0.14.0"
