@@ -2,9 +2,9 @@ import asyncio
 
 from jarvis_command_sdk import DeviceManagerDevice, IJarvisDeviceManager, device_type, device_types
 
-CONTROL_TYPES = {"light", "toggle", "cover", "lock", "thermostat", "camera", "kettle", "media", "alarm", "sensor"}
+CONTROL_TYPES = {"light", "toggle", "cover", "lock", "thermostat", "camera", "kettle", "media", "alarm", "sensor", "buttons"}
 BUTTON_TYPES = {"primary", "secondary", "destructive"}
-REQUIRED = {"label", "icon", "controllable", "control_type", "features", "ui_hints", "state_fields", "actions"}
+REQUIRED = {"label", "icon", "visible", "controllable", "control_type", "features", "ui_hints", "state_fields", "actions"}
 
 
 def _types():
@@ -32,8 +32,23 @@ def test_actions_are_well_formed_and_only_on_controllable_types():
         assert len(actions) == len(set(actions)), name
 
 
-def test_unknown_domain_gets_fallback():
-    assert device_type("toaster") == device_types()["fallback"]
+def test_hidden_types_are_not_controllable():
+    for name, t in _types():
+        if not t["visible"]:
+            assert not t["controllable"], name
+
+
+def test_unknown_domain_gets_read_only_fallback():
+    fallback = device_type("toaster")
+    assert fallback == device_types()["fallback"]
+    assert fallback["visible"] and not fallback["controllable"] and fallback["actions"] == []
+
+
+def test_ha_housekeeping_domains_are_hidden():
+    for domain in ("todo", "update", "event", "number", "select", "conversation", "tts"):
+        assert not device_type(domain)["visible"], domain
+    assert [a["action"] for a in device_type("automation")["actions"]] == ["trigger", "turn_on", "turn_off"]
+    assert device_type("button")["control_type"] == "buttons"
 
 
 def test_unit_overlay_and_no_leak():
