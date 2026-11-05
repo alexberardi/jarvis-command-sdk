@@ -17,7 +17,16 @@ from .command import (
 from .field_spec import FieldSpec
 from .proposable import ProposableAction, BlastTier
 from .record_summary import DataBrowserMode, RecordSummary
-from .context_provider import ContextOperation, ContextResult
+from .context_provider import (
+    CALL_CONTEXT,
+    TIER_IF_ASKED,
+    TIER_STATE,
+    CallContextField,
+    ContextOperation,
+    ContextResult,
+    call_context_operation,
+    call_context_result,
+)
 from .parameter import IJarvisParameter, JarvisParameter
 from .image import (
     IMAGE_MIME_TYPES,
@@ -134,6 +143,12 @@ __all__ = [
     "RecordSummary",
     "ContextOperation",
     "ContextResult",
+    "CALL_CONTEXT",
+    "TIER_IF_ASKED",
+    "TIER_STATE",
+    "CallContextField",
+    "call_context_operation",
+    "call_context_result",
     "DataBrowserMode",
     # Auth primitives
     "AuthStatus",
@@ -280,4 +295,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.14.0"
+__version__ = "0.15.0"

@@ -14,7 +14,7 @@ import logging
 import re
 import uuid
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Callable, TYPE_CHECKING
+from typing import List, Dict, Any, Callable, Optional, TYPE_CHECKING
 from dataclasses import dataclass
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -337,6 +337,17 @@ class IJarvisCommand(ABC):
         """
         if self.authentication:
             return self.authentication.friendly_name
+        return None
+
+    @property
+    def call_context_description(self) -> Optional[str]:
+        """What this command shares with phone call plans, for the user: shown under its "Share
+        with phone calls" switch in the app and on the plan card. One plain sentence, e.g. "Your
+        free and busy times for the next week, so Jarvis only books slots that fit."
+
+        Returns:
+            The description, or None (default) to use the context operation's own description.
+        """
         return None
 
     @property
