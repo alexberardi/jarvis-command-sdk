@@ -61,6 +61,10 @@ MAX_IMAGES, MAX_IMAGE_BYTES, IMAGE_MIME_TYPES, IMAGE_SCHEMA_MARKER
 IJarvisSecret, JarvisSecret   # value_type="user" renders a household-member picker; stored value = selected member's user id (string)
 AuthenticationConfig, IJarvisButton, JarvisPackage
 
+# Plan-time context (calendar availability, call_context for phone calls)
+ContextOperation, ContextResult
+CALL_CONTEXT, CallContextField, TIER_IF_ASKED, TIER_STATE, call_context_operation, call_context_result
+
 # Agents
 IJarvisAgent, AgentSchedule, Alert
 
@@ -366,6 +370,40 @@ package root.
 - The host owns timers: it schedules, fires and speaks them. Commands never start threads for a timer.
 - `invoke_command`'s `name` and `request_info` are positional-only, so a command argument
   called `name` passes through in `**args`. The host resolves the invoked command's secrets.
+
+## Sharing context with phone calls (`call_context`)
+
+When Jarvis plans a phone call, the server asks every command on every node of the household
+for context, once, while the plan is made (never during the call): the calendar's
+`availability`, and the well-known `call_context` operation. A command that has something a
+business might ask for (a loyalty number, a vehicle's VIN, a dental member ID) declares it:
+
+```python
+from jarvis_command_sdk import CallContextField, call_context_operation, call_context_result
+
+class DentalPlan(IJarvisCommand):
+    @property
+    def call_context_description(self) -> str:      # shown to the user under its switch
+        return "Your dental plan's member ID, given only if the office asks"
+
+    @property
+    def context_operations(self):
+        return [call_context_operation()]           # params: business, goal (both optional)
+
+    def execute_context_operation(self, operation, params):
+        if "dent" not in (params.get("business") or "").lower():
+            return call_context_result([])          # share only what fits this call
+        return call_context_result([CallContextField(
+            key="dental_member_id", label="Dental member ID", value=self._member_id())])
+```
+
+The fields go into the plan's brief, which the user sees and can edit on the confirm card.
+`TIER_IF_ASKED` (the default) fields are given only when the business asks and are guarded on
+the call; `TIER_STATE` ones may be stated. The user's own saved call details win a key over every
+command, and the first command to share a key wins over later ones. The household can switch a
+command out with "Share with phone calls" in the app (enforced on the node: a switched-off command
+is never asked). Commands on an older SDK declare nothing and are skipped. Read-only, as every
+context operation.
 
 ## Dependencies
 

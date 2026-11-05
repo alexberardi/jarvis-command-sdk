@@ -119,3 +119,33 @@ class TestExecution:
     def test_failed_helper_carries_no_data(self):
         r = ContextResult.failed("calendar unreachable")
         assert r.to_dict() == {"ok": False, "data": {}, "error": "calendar unreachable"}
+
+
+# --- call_context ------------------------------------------------------------------------
+
+from jarvis_command_sdk import (  # noqa: E402
+    CALL_CONTEXT,
+    TIER_STATE,
+    CallContextField,
+    call_context_operation,
+    call_context_result,
+)
+
+
+def test_call_context_helpers_build_what_the_server_reads():
+    op = call_context_operation("Your dental plan's member ID")
+    assert op.name == CALL_CONTEXT == "call_context"
+    assert op.missing_required({}) == []  # business and goal are optional
+    res = call_context_result([
+        CallContextField(key="dental_member_id", label="Dental member ID", value="DX-77120"),
+        CallContextField(key="hygienist", label="Preferred hygienist", value="Maria", tier=TIER_STATE),
+    ])
+    assert res.to_dict() == {"ok": True, "error": None, "data": {"fields": [
+        {"key": "dental_member_id", "label": "Dental member ID", "value": "DX-77120", "tier": "if_asked", "category": "general"},
+        {"key": "hygienist", "label": "Preferred hygienist", "value": "Maria", "tier": "state", "category": "general"},
+    ]}}
+    assert call_context_result([]).to_dict()["data"] == {"fields": []}
+
+
+def test_call_context_description_defaults_to_none():
+    assert _Provider().call_context_description is None
