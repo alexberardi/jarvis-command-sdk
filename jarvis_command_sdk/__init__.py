@@ -125,11 +125,36 @@ from .geocoding import GeocodingHelper, GeocodingResult
 from .bluetooth_audio import BluetoothAudio, BluetoothSinkInfo
 from .process import process_alive
 from .settings import UserSettings
+from .music import (
+    ARTWORK_MAX_BYTES,
+    ARTWORK_MIME_TYPES,
+    PLAYBACK_ACTIONS,
+    PLAYBACK_STATES,
+    REPEAT_MODES,
+    IJarvisMusicCommand,
+    PlaybackArtwork,
+    PlaybackBackend,
+    PlaybackState,
+    get_playback_backend,
+    set_playback_backend,
+)
 from .forge import generate_spec, generate_spec_markdown
 
 __all__ = [
     # Command interface
     "IJarvisCommand",
+    # Music commands (now-playing + transport controls)
+    "IJarvisMusicCommand",
+    "PlaybackState",
+    "PlaybackArtwork",
+    "PlaybackBackend",
+    "set_playback_backend",
+    "get_playback_backend",
+    "PLAYBACK_STATES",
+    "PLAYBACK_ACTIONS",
+    "REPEAT_MODES",
+    "ARTWORK_MIME_TYPES",
+    "ARTWORK_MAX_BYTES",
     "PreRouteResult",
     "FastPathPattern",
     "CommandExample",
@@ -295,4 +320,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"

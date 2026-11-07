@@ -29,6 +29,7 @@ from .interactive import (
     InteractiveSection,
     RequiresRecordField,
 )
+from .music import IJarvisMusicCommand, PlaybackArtwork, PlaybackState
 from .package import JarvisPackage
 from .prompt_provider import IJarvisPromptProvider
 from .image import JarvisImage
@@ -38,9 +39,10 @@ from .response import CommandResponse
 from .secret import JarvisSecret
 from .validation import ValidationResult
 
-# The five main interface classes authors implement
+# The main interface classes authors implement
 INTERFACE_CLASSES: list[type] = [
     IJarvisCommand,
+    IJarvisMusicCommand,
     IJarvisAgent,
     IJarvisDeviceProtocol,
     IJarvisDeviceManager,
@@ -71,6 +73,8 @@ SUPPORTING_CLASSES: list[type] = [
     InteractiveRowAction,
     InteractiveAction,
     RequiresRecordField,
+    PlaybackState,
+    PlaybackArtwork,
 ]
 
 # Manifest YAML schema — the source of truth for jarvis_command.yaml / jarvis_package.yaml

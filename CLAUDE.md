@@ -16,6 +16,7 @@ pip install -e ../jarvis-command-sdk
 | Interface | Module | Purpose |
 |-----------|--------|---------|
 | `IJarvisCommand` | `command.py` | Voice command (the original plugin type) |
+| `IJarvisMusicCommand` | `music.py` | A command that plays audio: reports `PlaybackState`, takes transport controls |
 | `IJarvisAgent` | `agent.py` | Background agent (scheduled data collection) |
 | `IJarvisDeviceProtocol` | `device_protocol.py` | LAN/cloud device adapter (LIFX, Kasa, etc.) |
 | `IJarvisDeviceManager` | `device_manager.py` | Device backend (HA, Jarvis Direct): list, plus optional `get_state`/`control` |
@@ -64,6 +65,10 @@ AuthenticationConfig, IJarvisButton, JarvisPackage
 # Plan-time context (calendar availability, call_context for phone calls)
 ContextOperation, ContextResult
 CALL_CONTEXT, CallContextField, TIER_IF_ASKED, TIER_STATE, call_context_operation, call_context_result
+
+# Music commands (jarvis-server docs/agent/PLAYBACK.md)
+IJarvisMusicCommand, PlaybackState, PlaybackArtwork, PlaybackBackend, set_playback_backend, get_playback_backend
+PLAYBACK_STATES, PLAYBACK_ACTIONS, REPEAT_MODES, ARTWORK_MIME_TYPES, ARTWORK_MAX_BYTES
 
 # Agents
 IJarvisAgent, AgentSchedule, Alert
@@ -404,6 +409,28 @@ command, and the first command to share a key wins over later ones. The househol
 command out with "Share with phone calls" in the app (enforced on the node: a switched-off command
 is never asked). Commands on an older SDK declare nothing and are skipped. Read-only, as every
 context operation.
+
+## Music commands (`IJarvisMusicCommand`)
+
+`IJarvisMusicCommand(IJarvisCommand)` (`music.py`) is the source contract of jarvis-server's
+playback plan (`docs/agent/PLAYBACK.md`): one now-playing state per node, any provider.
+
+- **Still a regular command.** Hosts find it with `issubclass(cls, IJarvisCommand)`; a host that
+  doesn't know the subclass runs it as a plain command.
+- **Required:** `playback_binary` (property: the player process, for ducking and takeover),
+  `playback_status() -> PlaybackState | None`, `playback_control(action, **args) -> PlaybackState | None`.
+  Adding these as abstract is safe because the interface is new; `IJarvisCommand` itself is unchanged.
+- **Optional:** `playback_artwork() -> PlaybackArtwork | None` (bytes, JPEG/PNG/WebP, ≤ 2 MiB).
+- **Provided:** `report(state=None) -> bool` pushes a change through `PlaybackBackend.report(command_name, state_dict | None)`;
+  False without a backend or on any failure, never raises. `takes_over_playback_binary` returns
+  `playback_binary`, so hosts that predate the subclass still do takeover.
+- **The sync rule:** `playback_status()` reads the player every time; `playback_control()` returns
+  the state read back afterwards, never the state asked for.
+- **Closed sets:** `PLAYBACK_STATES` (`playing`, `paused`, `idle`), `PLAYBACK_ACTIONS` (`play`, `pause`,
+  `next`, `previous`, `seek`, `volume`, `shuffle`, `repeat`, `like`), `REPEAT_MODES`. `PlaybackState`
+  raises ValueError outside them and clamps `volume` to 0–100. Field names follow the device
+  catalogue's `media_player` type. `to_dict()` omits optional fields that are None. Extending a set
+  is a wire change for jarvisd and the apps.
 
 ## Dependencies
 
