@@ -187,11 +187,40 @@ alerts = alerts_flush()                    # list[Alert], removed from the queue
 resp = invoke_command("get_weather", request_info, city="Boston")  # CommandResponse, or None
 ```
 
+## Music commands: what's playing, and the transport controls
+
+A command that plays audio subclasses `IJarvisMusicCommand` instead of `IJarvisCommand`. It is
+still a regular command; on top, it tells the node what is playing and takes its controls, so the
+display, the mobile app and "pause the music" work for every provider the same way:
+
+```python
+from jarvis_command_sdk import IJarvisMusicCommand, PlaybackState
+
+class RadioCommand(IJarvisMusicCommand):
+    @property
+    def playback_binary(self) -> str:
+        return "mpv"                         # the player process: ducked, and stopped on takeover
+
+    def playback_status(self) -> PlaybackState | None:
+        if not self._player.running:
+            return None                      # nothing playing
+        return PlaybackState(state="playing", media_title=self._station,
+                             actions=("pause", "play", "volume"))
+
+    def playback_control(self, action, **args):
+        ...                                  # one of PLAYBACK_ACTIONS
+        return self.playback_status()        # read back from the player, never assumed
+```
+
+Call `self.report()` when the player changes on its own (a new track, another app pausing it).
+`playback_artwork()` may return the cover as `PlaybackArtwork(data=..., mime=...)`; never a URL.
+
 ## What's Included
 
 | Module | Classes |
 |--------|---------|
 | `command` | `IJarvisCommand`, `PreRouteResult`, `CommandExample`, `CommandAntipattern` |
+| `music` | `IJarvisMusicCommand`, `PlaybackState`, `PlaybackArtwork`, `PlaybackBackend` |
 | `parameter` | `IJarvisParameter`, `JarvisParameter` |
 | `image` | `JarvisImage`, `ImageValidationError`, `coerce_images` |
 | `secret` | `IJarvisSecret`, `JarvisSecret` |
