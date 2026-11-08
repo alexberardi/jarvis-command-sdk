@@ -44,6 +44,10 @@ class BlastTier(str, Enum):
     irreversible = "irreversible"
 
 
+# offer_after_calls is one sentence the post-call model reads; keep it short.
+OFFER_AFTER_CALLS_MAX = 200
+
+
 @dataclass
 class ProposableAction:
     """One callback a command opts in to being proposed as a confirm card.
@@ -62,6 +66,13 @@ class ProposableAction:
         editable: Subset of ``params`` names the user may correct on the card
             (e.g. a mis-parsed datetime). Must be a subset of ``params``.
         blast_tier: Presentation tier (see :class:`BlastTier`).
+        offer_after_calls: When set, the action may be offered as a button on a
+            phone call's "Call finished" card: one plain sentence saying when it fits a
+            call ("the call booked an appointment for a specific date and time"). After
+            the call the server's model picks the offered actions that apply and fills
+            their params; the server checks them and the user taps to run one. ``None``
+            (the default) never offers it. ≤ 200 chars. jarvis-server
+            ``docs/cc/phone-followups.md``.
         idempotency_param: Names the param carrying the stable dedup key. The
             **contract**: command-center de-dupes *dispatch* on this key, but the
             command MUST also no-op if a record with this key already exists —
@@ -77,6 +88,7 @@ class ProposableAction:
     editable: list[str] = field(default_factory=list)
     blast_tier: BlastTier = BlastTier.reversible
     idempotency_param: str | None = None
+    offer_after_calls: str | None = None
 
     def __post_init__(self) -> None:
         if not self.callback or not str(self.callback).strip():
@@ -90,6 +102,13 @@ class ProposableAction:
             raise ValueError(
                 f"ProposableAction '{self.callback}': editable names not in params: {unknown}"
             )
+        if self.offer_after_calls is not None:
+            self.offer_after_calls = str(self.offer_after_calls).strip()
+            if not self.offer_after_calls or len(self.offer_after_calls) > OFFER_AFTER_CALLS_MAX:
+                raise ValueError(
+                    f"ProposableAction '{self.callback}': offer_after_calls must be 1-"
+                    f"{OFFER_AFTER_CALLS_MAX} characters"
+                )
         if self.idempotency_param is not None and self.idempotency_param not in param_names:
             raise ValueError(
                 f"ProposableAction '{self.callback}': idempotency_param "
@@ -102,7 +121,7 @@ class ProposableAction:
         The command-center capability registry stores these dicts; the dispatcher
         validates a proposed action against them.
         """
-        return {
+        d = {
             "callback": self.callback,
             "params": [p.to_dict() for p in self.params],
             "outputs": [o.to_dict() for o in self.outputs],
@@ -113,3 +132,6 @@ class ProposableAction:
             "blast_tier": self.blast_tier.value,
             "idempotency_param": self.idempotency_param,
         }
+        if self.offer_after_calls is not None:  # absent, not null: older servers see no change
+            d["offer_after_calls"] = self.offer_after_calls
+        return d
