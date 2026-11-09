@@ -170,6 +170,24 @@ class TestProposableActionDataclass:
         assert d["editable"] == ["title"]
         assert d["blast_tier"] == "reversible"
         assert isinstance(d["params"], list) and d["params"][0]["name"] == "title"
+        # Not offered after calls: the wire form is unchanged (no key at all).
+        assert "offer_after_calls" not in d
+
+    def test_offer_after_calls_defaults_off(self):
+        assert ProposableAction(callback="c").offer_after_calls is None
+
+    def test_offer_after_calls_on_the_wire_when_set(self):
+        a = ProposableAction(callback="c", offer_after_calls="  the call booked a time  ")
+        assert a.offer_after_calls == "the call booked a time"
+        assert a.to_dict()["offer_after_calls"] == "the call booked a time"
+
+    def test_offer_after_calls_must_say_something(self):
+        with pytest.raises(ValueError, match="offer_after_calls"):
+            ProposableAction(callback="c", offer_after_calls="   ")
+
+    def test_offer_after_calls_is_capped(self):
+        with pytest.raises(ValueError, match="offer_after_calls"):
+            ProposableAction(callback="c", offer_after_calls="x" * 201)
 
 
 # ── IJarvisCommand opt-in ────────────────────────────────────────────────────

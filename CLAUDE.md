@@ -410,6 +410,26 @@ command out with "Share with phone calls" in the app (enforced on the node: a sw
 is never asked). Commands on an older SDK declare nothing and are skipped. Read-only, as every
 context operation.
 
+## Follow-ups after a call (`offer_after_calls`)
+
+A proposable action can also be offered as a button on a phone call's **Call finished** card.
+Set `offer_after_calls` to one sentence saying when it fits a call; nothing else changes:
+
+```python
+ProposableAction(
+    callback="create_event", params=self.parameters,
+    card_title="Add to your calendar?", confirm_label="Add to Calendar",
+    offer_after_calls="the call booked an appointment or reservation for a specific date and time",
+)
+```
+
+After the call, the server's model picks the offered actions that fit the transcript and fills
+their params; the server checks every pick (declared params, dates actually said on the call, no
+private call details, at most 3) and the user taps to run one through the normal proposable-action
+dispatcher. `None` (the default) never offers it; 1-200 chars when set. The wire form carries the
+key only when set. Only commands with **Share with phone calls** on are considered. Design:
+jarvis-server `docs/cc/phone-followups.md`.
+
 ## Music commands (`IJarvisMusicCommand`)
 
 `IJarvisMusicCommand(IJarvisCommand)` (`music.py`) is the source contract of jarvis-server's
