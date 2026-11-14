@@ -79,6 +79,7 @@ from .signals import (
 from .logger import LoggerBackend, get_logger, set_logger_backend, get_logger_backend
 from .llm import LLMBackend, llm_chat_text, set_llm_backend, get_llm_backend
 from .cc_http import CCHttpBackend, cc_post, set_cc_backend, get_cc_backend
+from .channel import Channel, ChannelImage, ChannelReply, CommandReply, Outgoing, split_reply
 from .timer import (
     TimerBackend,
     set_timer_backend,
@@ -268,6 +269,13 @@ __all__ = [
     "get_llm_backend",
     "CCHttpBackend",
     "cc_post",
+    # Chat-service channels (a daemon's calls to Jarvis)
+    "Channel",
+    "ChannelImage",
+    "ChannelReply",
+    "CommandReply",
+    "Outgoing",
+    "split_reply",
     "set_cc_backend",
     "get_cc_backend",
     # Timer / audio control / alert queue / command invoker (injected by the node runtime)
@@ -323,4 +331,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.17.0"
+__version__ = "0.18.0"

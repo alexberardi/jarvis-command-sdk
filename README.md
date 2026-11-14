@@ -249,6 +249,43 @@ class Bridge(IJarvisDaemon):
 
 Needs a node that runs daemons (jarvis-agent, from the release that follows SDK 0.17.0).
 
+## Channels: a chat service people can message Jarvis from
+
+A channel package is a daemon that holds a chat service's connection (Discord, Slack, ...) and
+hands Jarvis what people send. Jarvis decides who an account is (people link theirs in the app
+with a code), runs the chat turn and answers. `Channel` is the package's line to Jarvis:
+
+```python
+from jarvis_command_sdk import Channel, ChannelImage, IJarvisDaemon, split_reply
+
+channel = Channel("myservice")          # your service's name: a-z, 0-9, _
+
+async def on_message(event):            # your client library's callback
+    reply = await channel.message(str(event.author_id), f"dm:{event.channel_id}", event.text,
+                                  [ChannelImage(photo) for photo in event.photos])
+    if reply is None or not reply.linked:
+        return                          # Jarvis unreachable, or a stranger: say nothing
+    for part in split_reply(reply.say, 1900):
+        await event.channel.send(part)
+
+async def on_command(event):            # however your service spells commands
+    answer = await channel.command(str(event.author_id), f"dm:{event.channel_id}", "link", code=event.arg)
+    if answer:
+        await event.respond(answer.text, private=answer.private)
+```
+
+- `message` waits for the whole chat turn (it can take minutes) without blocking your event loop.
+- `place` is where it was said (a DM, a channel, a thread): Jarvis keeps one conversation per
+  person and place.
+- The commands are Jarvis's (`link`, `new`, `node`, `voice`, `notify`, `status`); how a person
+  types one is yours.
+- `await channel.deliver(send)` as a task sends reminders to people who opted in, and tells
+  Jarvis the channel is running. `send(msg)` raises if it could not send; the message is then
+  offered again.
+- Answer only where you were asked, only linked accounts, and never mention or ping anyone.
+
+Needs jarvisd and jarvis-agent from the release that follows SDK 0.18.0.
+
 ## What's Included
 
 | Module | Classes |
@@ -271,6 +308,7 @@ Needs a node that runs daemons (jarvis-agent, from the release that follows SDK 
 | `logger` | `LoggerBackend`, `get_logger`, `set_logger_backend`, `get_logger_backend` |
 | `llm` | `LLMBackend`, `llm_chat_text`, `set_llm_backend`, `get_llm_backend` |
 | `cc_http` | `CCHttpBackend`, `cc_post`, `set_cc_backend`, `get_cc_backend` |
+| `channel` | `Channel`, `ChannelImage`, `ChannelReply`, `CommandReply`, `Outgoing`, `split_reply` |
 | `timer` | `TimerBackend`, `timer_set`, `timer_cancel`, `timer_list_active`, `timer_get`, `timer_find_by_label`, `timer_clear_all`, `set_timer_backend`, `get_timer_backend` |
 | `audio_control` | `AudioControlBackend`, `audio_set_volume_percent`, `audio_adjust_volume_percent`, `audio_set_muted`, `audio_speak`, `set_audio_control_backend`, `get_audio_control_backend` |
 | `alert_queue` | `AlertQueueBackend`, `alerts_pending`, `alerts_flush`, `alerts_remove`, `alerts_count`, `set_alert_queue_backend`, `get_alert_queue_backend` |

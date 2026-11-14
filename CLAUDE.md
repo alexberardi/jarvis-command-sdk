@@ -27,6 +27,7 @@ pip install -e ../jarvis-command-sdk
 | `LoggerBackend` / `get_logger` | `logger.py` | Node-supplied logger; falls back to `logging.getLogger` |
 | `LLMBackend` / `llm_chat_text` | `llm.py` | Ask the node's LLM for a text reply (None without a backend) |
 | `CCHttpBackend` / `cc_post` | `cc_http.py` | POST to command-center as the node (None without a backend) |
+| `Channel` | `channel.py` | A chat-service channel daemon's calls to Jarvis: `message`, `command`, `outbox`/`deliver`; `split_reply` |
 | `TimerBackend` / `timer_*` | `timer.py` | Set/cancel/list the node's timers; the host fires and speaks them |
 | `AudioControlBackend` / `audio_*` | `audio_control.py` | Node volume, mute, and speak |
 | `AlertQueueBackend` / `alerts_*` | `alert_queue.py` | Read/flush/remove the node's pending agent `Alert`s |
