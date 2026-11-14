@@ -18,6 +18,7 @@ pip install -e ../jarvis-command-sdk
 | `IJarvisCommand` | `command.py` | Voice command (the original plugin type) |
 | `IJarvisMusicCommand` | `music.py` | A command that plays audio: reports `PlaybackState`, takes transport controls |
 | `IJarvisAgent` | `agent.py` | Background agent (scheduled data collection) |
+| `IJarvisDaemon` | `daemon.py` | Long-running daemon: started once, kept running and restarted by the node (a held connection) |
 | `IJarvisDeviceProtocol` | `device_protocol.py` | LAN/cloud device adapter (LIFX, Kasa, etc.) |
 | `IJarvisDeviceManager` | `device_manager.py` | Device backend (HA, Jarvis Direct): list, plus optional `get_state`/`control` |
 | `device_types()` / `device_type()` | `device_types.py` | The device-type catalogue (`device_types.json`): per-domain icon, control type, UI hints, actions, state fields |
@@ -72,6 +73,7 @@ PLAYBACK_STATES, PLAYBACK_ACTIONS, REPEAT_MODES, ARTWORK_MIME_TYPES, ARTWORK_MAX
 
 # Agents
 IJarvisAgent, AgentSchedule, Alert
+IJarvisDaemon
 
 # Device protocols
 IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
@@ -471,6 +473,28 @@ None (pure Python, no external deps).
 4. **`JarvisStorage` is a facade over a backend.** The actual SQLAlchemy + SQLCipher implementation lives on the node side. Community packages get the facade; production swaps in the real backend via `set_backend()` at install time. Don't import the backend directly. (`JarvisInbox` follows the same pattern via `set_inbox_backend()`.)
 5. **The community-package logger fallback pattern is canonical.** Every package author copies the `try: from jarvis_log_client; except ImportError: stdlib fallback` block (shown above). Don't try to make `jarvis_log_client` an SDK dependency — it's a node-only library.
 6. **Spec generation is at import time** when the Pantry calls `GET /v1/forge/spec`. If you do expensive work in `__forge_hints__` (e.g. dynamic imports), the spec endpoint slows. Keep hints declarative.
+
+## Adding a component type
+
+A component type (`command`, `agent`, `daemon`, `device_protocol`, ...) is named in several repos,
+and nothing checks that the lists agree. A type missing from one of them fails quietly: the
+Pantry warns "unknown type" and its test harness fails the package, a folder isn't discovered,
+or a node installs the package and skips the component. Change them together; `daemon` (0.17.0)
+is the worked example.
+
+1. **Here:** the base class with `__forge_hints__`, the export in `__init__.py`, and `forge.py`
+   (`INTERFACE_CLASSES`, the manifest's valid component types, the bundle layout, convention
+   inference). The Forge's prompt is generated from this, so it needs nothing else.
+2. **jarvis-pantry:** `static_analysis.py` (`COMPONENT_TYPE_INFO`), `github_service.py`
+   (`dir_types`), `test_harness.py` (`dir_types`, a runner, `_TYPE_RUNNERS`), the component table
+   in its `CLAUDE.md`, and the SDK version it runs (`SDK_REF` in `Dockerfile.local`, plus the
+   cached test base image). Its "Add a new package type" recipe has the detail.
+3. **jarvis-pantry-web:** the type union in `src/api/pantry.ts`, the labels and icons in
+   `CommandCard.tsx` and `app/commands/[name]/page.tsx`, the enum in `src/lib/forgeModel.ts`.
+4. **The node (jarvis-server):** `internal/agent/packages/manifest.go` (`componentDirs`,
+   `conventional`, `NodeTypes`), whatever loads and runs the type under `internal/agent/`, and
+   the SDK commit it pins (`SDKRequirement` in `internal/agent/packages/python.go`). The Python
+   node (`jarvis-node-setup`) is deprecated and gets no new types.
 
 ## Stability
 

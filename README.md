@@ -215,6 +215,40 @@ class RadioCommand(IJarvisMusicCommand):
 Call `self.report()` when the player changes on its own (a new track, another app pausing it).
 `playback_artwork()` may return the cover as `PlaybackArtwork(data=..., mime=...)`; never a URL.
 
+## Daemons: a connection the node keeps open
+
+An `IJarvisAgent` runs on an interval and returns. An `IJarvisDaemon` is started once and kept
+running, for a package that must hold a connection open (a chat service's gateway, a device
+bridge's socket). Put it in `daemons/<name>/daemon.py`:
+
+```python
+import asyncio
+from jarvis_command_sdk import IJarvisDaemon, JarvisSecret
+
+
+class Bridge(IJarvisDaemon):
+    name = "bridge"
+    description = "Keeps the bridge's connection open."
+    required_secrets = [JarvisSecret("BRIDGE_TOKEN", "The bridge's token", "integration", "string")]
+
+    async def run(self) -> None:
+        conn = await connect()
+        try:
+            async for event in conn:
+                handle(event)
+        finally:
+            await conn.close()
+```
+
+- `run()` is awaited once. The node cancels it to stop the daemon (uninstall, shutdown, a changed
+  secret), so release what you hold in `finally`.
+- If `run()` returns or raises, the daemon is restarted after a delay; one that keeps failing marks
+  its package failed in the app.
+- Each daemon runs in its own process, on one node of the household.
+- When polling on an interval is enough, use `IJarvisAgent`.
+
+Needs a node that runs daemons (jarvis-agent, from the release that follows SDK 0.17.0).
+
 ## What's Included
 
 | Module | Classes |
@@ -231,6 +265,7 @@ Call `self.report()` when the player changes on its own (a new track, another ap
 | `request` | `RequestInformation` |
 | `validation` | `ValidationResult` |
 | `agent` | `IJarvisAgent`, `AgentSchedule`, `Alert` |
+| `daemon` | `IJarvisDaemon` |
 | `device_protocol` | `IJarvisDeviceProtocol`, `DiscoveredDevice`, `DeviceControlResult` |
 | `device_manager` | `IJarvisDeviceManager`, `DeviceManagerDevice` |
 | `logger` | `LoggerBackend`, `get_logger`, `set_logger_backend`, `get_logger_backend` |

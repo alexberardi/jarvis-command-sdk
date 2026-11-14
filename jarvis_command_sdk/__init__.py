@@ -53,6 +53,7 @@ from .interactive import (
     RequiresRecordField,
 )
 from .agent import IJarvisAgent, AgentSchedule, Alert
+from .daemon import IJarvisDaemon
 from .device_protocol import IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult, InputRequest
 from .device_manager import IJarvisDeviceManager, DeviceManagerDevice
 from .device_types import device_types, device_type
@@ -221,6 +222,8 @@ __all__ = [
     "IJarvisAgent",
     "AgentSchedule",
     "Alert",
+    # Daemon interface
+    "IJarvisDaemon",
     # Device protocol interface
     "IJarvisDeviceProtocol",
     "DiscoveredDevice",
@@ -320,4 +323,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.16.0"
+__version__ = "0.17.0"
