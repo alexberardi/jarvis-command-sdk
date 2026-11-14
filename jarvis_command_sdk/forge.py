@@ -16,6 +16,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, get_type_hints
 
 from .agent import AgentSchedule, Alert, IJarvisAgent
+from .channel import Channel
 from .daemon import IJarvisDaemon
 from .authentication import AuthenticationConfig
 from .button import IJarvisButton
@@ -53,6 +54,7 @@ INTERFACE_CLASSES: list[type] = [
 
 # Supporting dataclasses/classes authors use in their implementations
 SUPPORTING_CLASSES: list[type] = [
+    Channel,
     CommandResponse,
     JarvisParameter,
     JarvisImage,
