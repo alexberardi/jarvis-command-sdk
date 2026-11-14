@@ -16,6 +16,7 @@ from dataclasses import fields, is_dataclass
 from typing import Any, get_type_hints
 
 from .agent import AgentSchedule, Alert, IJarvisAgent
+from .daemon import IJarvisDaemon
 from .authentication import AuthenticationConfig
 from .button import IJarvisButton
 from .command import CommandExample, FastPathPattern, IJarvisCommand
@@ -44,6 +45,7 @@ INTERFACE_CLASSES: list[type] = [
     IJarvisCommand,
     IJarvisMusicCommand,
     IJarvisAgent,
+    IJarvisDaemon,
     IJarvisDeviceProtocol,
     IJarvisDeviceManager,
     IJarvisPromptProvider,
@@ -324,7 +326,7 @@ MANIFEST_SCHEMA: dict[str, Any] = {
             "item_fields": {
                 "type": {
                     "type": "string", "required": True,
-                    "valid_values": ["command", "agent", "device_protocol", "device_manager", "prompt_provider"],
+                    "valid_values": ["command", "agent", "daemon", "device_protocol", "device_manager", "prompt_provider"],
                 },
                 "name": {"type": "string", "required": True},
                 "path": {"type": "string", "required": True, "description": "Relative path to entry file"},
@@ -353,6 +355,7 @@ FILE_LAYOUT: dict[str, Any] = {
             "jarvis_package.yaml                    # manifest with components list",
             "commands/{name}/command.py              # command implementations",
             "agents/{name}/agent.py                  # agent implementations",
+            "daemons/{name}/daemon.py                # daemon implementations",
             "device_families/{name}/protocol.py      # device protocol implementations",
             "device_managers/{name}/manager.py        # device manager implementations",
             "prompt_providers/{name}/provider.py      # prompt provider implementations",
@@ -370,6 +373,7 @@ FILE_LAYOUT: dict[str, Any] = {
         "rules": {
             "commands/{name}/command.py": "command",
             "agents/{name}/agent.py": "agent",
+            "daemons/{name}/daemon.py": "daemon",
             "device_families/{name}/protocol.py": "device_protocol",
             "device_managers/{name}/manager.py": "device_manager",
             "prompt_providers/{name}/provider.py": "prompt_provider",

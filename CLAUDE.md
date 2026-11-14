@@ -18,6 +18,7 @@ pip install -e ../jarvis-command-sdk
 | `IJarvisCommand` | `command.py` | Voice command (the original plugin type) |
 | `IJarvisMusicCommand` | `music.py` | A command that plays audio: reports `PlaybackState`, takes transport controls |
 | `IJarvisAgent` | `agent.py` | Background agent (scheduled data collection) |
+| `IJarvisDaemon` | `daemon.py` | Long-running daemon: started once, kept running and restarted by the node (a held connection) |
 | `IJarvisDeviceProtocol` | `device_protocol.py` | LAN/cloud device adapter (LIFX, Kasa, etc.) |
 | `IJarvisDeviceManager` | `device_manager.py` | Device backend (HA, Jarvis Direct): list, plus optional `get_state`/`control` |
 | `device_types()` / `device_type()` | `device_types.py` | The device-type catalogue (`device_types.json`): per-domain icon, control type, UI hints, actions, state fields |
@@ -72,6 +73,7 @@ PLAYBACK_STATES, PLAYBACK_ACTIONS, REPEAT_MODES, ARTWORK_MIME_TYPES, ARTWORK_MAX
 
 # Agents
 IJarvisAgent, AgentSchedule, Alert
+IJarvisDaemon
 
 # Device protocols
 IJarvisDeviceProtocol, DiscoveredDevice, DeviceControlResult
