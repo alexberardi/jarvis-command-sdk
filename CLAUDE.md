@@ -496,6 +496,10 @@ is the worked example.
    `conventional`, `NodeTypes`), whatever loads and runs the type under `internal/agent/`, and
    the SDK commit it pins (`SDKRequirement` in `internal/agent/packages/python.go`). The Python
    node (`jarvis-node-setup`) is deprecated and gets no new types.
+5. **jarvis-developer-toolkit:** `src/jdt/core/constants.py` (the types, the convention directory,
+   the entry file, the required members), the `Literal` in `core/manifest_model.py`, the base class
+   in `core/introspect.py` and `analysis/import_checks.py` with a checker. `jdt test` is what every
+   package's CI runs, so a type missing there fails the package's CI.
 
 ## Stability
 
