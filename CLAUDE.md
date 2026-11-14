@@ -474,6 +474,28 @@ None (pure Python, no external deps).
 5. **The community-package logger fallback pattern is canonical.** Every package author copies the `try: from jarvis_log_client; except ImportError: stdlib fallback` block (shown above). Don't try to make `jarvis_log_client` an SDK dependency — it's a node-only library.
 6. **Spec generation is at import time** when the Pantry calls `GET /v1/forge/spec`. If you do expensive work in `__forge_hints__` (e.g. dynamic imports), the spec endpoint slows. Keep hints declarative.
 
+## Adding a component type
+
+A component type (`command`, `agent`, `daemon`, `device_protocol`, ...) is named in several repos,
+and nothing checks that the lists agree. A type missing from one of them fails quietly: the
+Pantry warns "unknown type" and its test harness fails the package, a folder isn't discovered,
+or a node installs the package and skips the component. Change them together; `daemon` (0.17.0)
+is the worked example.
+
+1. **Here:** the base class with `__forge_hints__`, the export in `__init__.py`, and `forge.py`
+   (`INTERFACE_CLASSES`, the manifest's valid component types, the bundle layout, convention
+   inference). The Forge's prompt is generated from this, so it needs nothing else.
+2. **jarvis-pantry:** `static_analysis.py` (`COMPONENT_TYPE_INFO`), `github_service.py`
+   (`dir_types`), `test_harness.py` (`dir_types`, a runner, `_TYPE_RUNNERS`), the component table
+   in its `CLAUDE.md`, and the SDK version it runs (`SDK_REF` in `Dockerfile.local`, plus the
+   cached test base image). Its "Add a new package type" recipe has the detail.
+3. **jarvis-pantry-web:** the type union in `src/api/pantry.ts`, the labels and icons in
+   `CommandCard.tsx` and `app/commands/[name]/page.tsx`, the enum in `src/lib/forgeModel.ts`.
+4. **The node (jarvis-server):** `internal/agent/packages/manifest.go` (`componentDirs`,
+   `conventional`, `NodeTypes`), whatever loads and runs the type under `internal/agent/`, and
+   the SDK commit it pins (`SDKRequirement` in `internal/agent/packages/python.go`). The Python
+   node (`jarvis-node-setup`) is deprecated and gets no new types.
+
 ## Stability
 
 The interfaces are the **public contract** with the community package ecosystem. Stability matters more here than anywhere else in the stack. Treat `IJarvisCommand`, `IJarvisAgent`, `IJarvisDeviceProtocol`, `IJarvisDeviceManager`, and `JarvisStorage` as semver-stable.
