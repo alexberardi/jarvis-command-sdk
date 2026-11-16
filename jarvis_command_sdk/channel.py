@@ -19,8 +19,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
+import itertools
 import logging
 import re
+import wave
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Iterable, Sequence
 
@@ -31,7 +34,7 @@ _log = logging.getLogger(__name__)
 _PROVIDER = re.compile(r"^[a-z0-9_]{1,32}$")
 
 #: The commands every channel has; how a person types one is the package's.
-COMMANDS: tuple[str, ...] = ("link", "new", "node", "voice", "notify", "status")
+COMMANDS: tuple[str, ...] = ("link", "new", "node", "notify", "status")
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,8 @@ class ChannelReply:
     linked: bool
     say: str = ""
     failed: bool = False
+    #: What Jarvis heard in the voice clip, to show above the answer; "" without a clip.
+    heard: str = ""
 
 
 @dataclass(frozen=True)
@@ -83,12 +88,13 @@ class Channel:
             "Use inside an IJarvisDaemon: await channel.message(external_user_id, place, text, images)",
             "reply is None (Jarvis unreachable) or reply.linked is False (a stranger): say nothing",
             "Otherwise send reply.say, split with split_reply(text, your_service_limit)",
+            "A voice clip: audio=await asyncio.to_thread(clip_to_wav, data) (list `av` in your manifest's packages); show reply.heard above the answer",
             "place is where it was said (a DM, a channel, a thread): one conversation per person and place",
             "Map your service's commands to channel.command(external_user_id, place, name, **args); names are in COMMANDS",
             "Run channel.deliver(send) as a task to send reminders; send raises if it could not",
             "Never mention or ping anyone in what you send, and answer only where you were asked",
         ],
-        "example_import": "from jarvis_command_sdk import Channel, ChannelImage, split_reply",
+        "example_import": "from jarvis_command_sdk import Channel, ChannelImage, clip_to_wav, split_reply",
     }
 
     def __init__(self, provider: str) -> None:
@@ -101,10 +107,13 @@ class Channel:
         return resp if isinstance(resp, dict) else None
 
     async def message(self, external_user_id: str, place: str, text: str = "",
-                      images: Sequence[ChannelImage] = ()) -> ChannelReply | None:
+                      images: Sequence[ChannelImage] = (), audio: bytes = b"") -> ChannelReply | None:
         """What an account sent, for Jarvis's answer. It waits for the whole chat turn, which
-        can take minutes. None: Jarvis could not be reached."""
+        can take minutes. ``audio`` is a voice clip as a WAV (clip_to_wav), at most two minutes:
+        Jarvis answers it in text and says what it heard. None: Jarvis could not be reached."""
         body: dict = {"external_user_id": external_user_id, "place": place, "text": text}
+        if audio:
+            body["audio_wav"] = base64.b64encode(audio).decode("ascii")
         if images:
             body["images"] = [{"mime": im.mime, "data": base64.b64encode(im.data).decode("ascii")} for im in images]
         resp = await self._post("message", body)
@@ -113,8 +122,8 @@ class Channel:
         if not resp.get("linked"):
             return ChannelReply(linked=False)
         if resp.get("failed"):
-            return ChannelReply(linked=True, say=str(resp["failed"]), failed=True)
-        return ChannelReply(linked=True, say=str(resp.get("reply") or ""))
+            return ChannelReply(linked=True, say=str(resp["failed"]), failed=True, heard=str(resp.get("heard") or ""))
+        return ChannelReply(linked=True, say=str(resp.get("reply") or ""), heard=str(resp.get("heard") or ""))
 
     async def command(self, external_user_id: str, place: str, name: str, **args: str) -> CommandReply | None:
         """One of COMMANDS, e.g. ``command(uid, place, "link", code="ABCD2345")``. A command
@@ -161,6 +170,37 @@ def _outgoing(resp: dict | None) -> list[Outgoing]:
         except (KeyError, TypeError):
             continue
     return out
+
+
+#: clip_to_wav stops here: Jarvis takes two minutes, and says so itself for anything longer.
+_CLIP_MAX_SECONDS = 150
+_CLIP_RATE = 16000
+
+
+def clip_to_wav(data: bytes) -> bytes:
+    """A voice clip as a service recorded it (Ogg, WebM, MP4, ...) as the WAV Jarvis takes:
+    16 kHz, mono, 16-bit. Raises ValueError for something that isn't audio.
+
+    Needs PyAV: list ``av`` in your manifest's packages. It works the CPU, so call it with
+    ``await asyncio.to_thread(clip_to_wav, data)``.
+    """
+    import av  # the package's dependency, not the SDK's
+
+    out = io.BytesIO()
+    try:
+        with av.open(io.BytesIO(data)) as src, wave.open(out, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(_CLIP_RATE)
+            resampler = av.AudioResampler(format="s16", layout="mono", rate=_CLIP_RATE)
+            for frame in itertools.chain(src.decode(audio=0), [None]):  # None flushes the resampler
+                for f in resampler.resample(frame):
+                    wav.writeframes(bytes(f.planes[0])[: f.samples * 2])
+                if wav.tell() > _CLIP_MAX_SECONDS * _CLIP_RATE:
+                    break
+    except (av.error.FFmpegError, IndexError) as exc:  # IndexError: no audio stream in it
+        raise ValueError(f"not a voice clip: {exc}") from None
+    return out.getvalue()
 
 
 def split_reply(text: str, limit: int) -> list[str]:

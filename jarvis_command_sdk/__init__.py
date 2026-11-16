@@ -79,7 +79,7 @@ from .signals import (
 from .logger import LoggerBackend, get_logger, set_logger_backend, get_logger_backend
 from .llm import LLMBackend, llm_chat_text, set_llm_backend, get_llm_backend
 from .cc_http import CCHttpBackend, cc_post, set_cc_backend, get_cc_backend
-from .channel import Channel, ChannelImage, ChannelReply, CommandReply, Outgoing, split_reply
+from .channel import Channel, ChannelImage, ChannelReply, CommandReply, Outgoing, clip_to_wav, split_reply
 from .timer import (
     TimerBackend,
     set_timer_backend,
@@ -275,6 +275,7 @@ __all__ = [
     "ChannelReply",
     "CommandReply",
     "Outgoing",
+    "clip_to_wav",
     "split_reply",
     "set_cc_backend",
     "get_cc_backend",
@@ -331,4 +332,4 @@ __all__ = [
     "generate_spec_markdown",
 ]
 
-__version__ = "0.18.0"
+__version__ = "0.19.0"
