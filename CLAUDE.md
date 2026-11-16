@@ -489,7 +489,9 @@ is the worked example.
 2. **jarvis-pantry:** `static_analysis.py` (`COMPONENT_TYPE_INFO`), `github_service.py`
    (`dir_types`), `test_harness.py` (`dir_types`, a runner, `_TYPE_RUNNERS`), the component table
    in its `CLAUDE.md`, and the SDK version it runs (`SDK_REF` in `Dockerfile.local`, plus the
-   cached test base image). Its "Add a new package type" recipe has the detail.
+   cached test base image). Its "Add a new package type" recipe has the detail. Then copy
+   `test_harness.py` to **jarvis-pantry-runner**'s `harness.py`: the public Pantry runs its
+   container tests there, so a type missing from that copy fails every real submission.
 3. **jarvis-pantry-web:** the type union in `src/api/pantry.ts`, the labels and icons in
    `CommandCard.tsx` and `app/commands/[name]/page.tsx`, the enum in `src/lib/forgeModel.ts`.
 4. **The node (jarvis-server):** `internal/agent/packages/manifest.go` (`componentDirs`,
