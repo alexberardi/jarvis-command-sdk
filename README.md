@@ -277,14 +277,17 @@ async def on_command(event):            # however your service spells commands
 - `message` waits for the whole chat turn (it can take minutes) without blocking your event loop.
 - `place` is where it was said (a DM, a channel, a thread): Jarvis keeps one conversation per
   person and place.
-- The commands are Jarvis's (`link`, `new`, `node`, `voice`, `notify`, `status`); how a person
+- The commands are Jarvis's (`link`, `new`, `node`, `notify`, `status`); how a person
   types one is yours.
+- A voice clip: `audio=await asyncio.to_thread(clip_to_wav, data)` turns whatever your service
+  recorded into the WAV Jarvis takes (list `av` in your manifest's packages). Jarvis answers in
+  text; show `reply.heard`, what it heard, above the answer. Two minutes at most.
 - `await channel.deliver(send)` as a task sends reminders to people who opted in, and tells
   Jarvis the channel is running. `send(msg)` raises if it could not send; the message is then
   offered again.
 - Answer only where you were asked, only linked accounts, and never mention or ping anyone.
 
-Needs jarvisd and jarvis-agent from the release that follows SDK 0.18.0.
+Needs jarvisd and jarvis-agent from the release that follows SDK 0.18.0 (voice clips: 0.19.0).
 
 ## What's Included
 

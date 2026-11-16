@@ -135,3 +135,53 @@ def test_split_reply() -> None:
     assert all(len(p) <= 12 for p in parts) and " ".join(parts) == "one two three four five six seven"
     assert split_reply("first paragraph\n\nsecond paragraph here", 24) == ["first paragraph", "second paragraph here"]
     assert split_reply("x" * 25, 10) == ["x" * 10, "x" * 10, "x" * 5]
+
+
+def _clip(fmt: str, codec: str, seconds: float = 1.0, rate: int = 48000) -> bytes:
+    """A recording as a service would hand it over: a tone, encoded."""
+    import io
+
+    import array
+    import math
+
+    import av
+
+    out = io.BytesIO()
+    with av.open(out, "w", format=fmt) as dst:
+        stream = dst.add_stream(codec, rate=rate)
+        n = int(seconds * rate)
+        tone = array.array("h", (int(math.sin(i * 2 * math.pi * 440 / rate) * 8000) for i in range(n)))
+        frame = av.AudioFrame(format="s16", layout="mono", samples=n)
+        frame.planes[0].update(tone.tobytes())
+        frame.sample_rate = rate
+        fifo = av.AudioResampler(format=stream.format, layout=stream.layout, rate=rate, frame_size=stream.frame_size)
+        for f in fifo.resample(frame) + fifo.resample(None):
+            dst.mux(stream.encode(f))
+        dst.mux(stream.encode(None))
+    return out.getvalue()
+
+
+@pytest.mark.parametrize("fmt,codec", [("ogg", "libopus"), ("webm", "libopus"), ("mp4", "aac")])
+def test_clip_to_wav_reads_what_services_record(fmt: str, codec: str) -> None:
+    import io
+    import wave
+
+    from jarvis_command_sdk import clip_to_wav
+
+    with wave.open(io.BytesIO(clip_to_wav(_clip(fmt, codec)))) as wav:
+        assert (wav.getnchannels(), wav.getsampwidth(), wav.getframerate()) == (1, 2, 16000)
+        assert 0.9 < wav.getnframes() / 16000 < 1.2  # a second of tone, give or take the codec's padding
+
+
+def test_clip_to_wav_refuses_what_is_not_audio() -> None:
+    from jarvis_command_sdk import clip_to_wav
+
+    with pytest.raises(ValueError):
+        clip_to_wav(b"not a recording at all")
+
+
+def test_a_voice_clip_is_sent_as_a_wav_and_what_was_heard_comes_back(cc) -> None:
+    fake = cc(message={"linked": True, "reply": "Yes, until six.", "heard": "is the café open"})
+    reply = asyncio.run(Channel("testchat").message("u1", "dm:1", audio=b"RIFF"))
+    assert fake.calls[-1][1]["audio_wav"] == base64.b64encode(b"RIFF").decode()
+    assert (reply.say, reply.heard) == ("Yes, until six.", "is the café open")
